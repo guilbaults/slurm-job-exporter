@@ -144,7 +144,7 @@ sample period during which global (device) memory was being read or written.',
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='TODO')
+        description='Promtheus exporter for jobs running with Slurm under a cgroup')
     parser.add_argument(
         '--port',
         type=int,

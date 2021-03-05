@@ -1,0 +1,13 @@
+[Unit]
+Description=Slurm-job-exporter
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/sysconfig/slurm-job-exporter.conf
+ExecStart=/usr/bin/slurm-job-exporter
+PIDFile=/var/run/slurm-job-exporter.pid
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
