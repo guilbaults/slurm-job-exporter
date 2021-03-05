@@ -25,7 +25,7 @@ Prometheus exporter for the stats in the cgroup accounting with slurm. This will
 mkdir -p %{buildroot}/%{_bindir}
 mkdir -p %{buildroot}/%{_unitdir}
 
-sed -i -e '1i#!/usr/bin/python' slurm-job-exporter.py
+sed -i -e '1i#!/usr/bin/python3' slurm-job-exporter.py
 install -m 0755 %{name}.py %{buildroot}/%{_bindir}/%{name}
 install -m 0644 slurm-job-exporter.service %{buildroot}/%{_unitdir}/slurm-job-exporter.service
 
