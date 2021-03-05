@@ -7,6 +7,17 @@ Python 3 with the following modules:
 * `prometheus_client`
 * `nvidia-ml-py`
 
+## Usage
+```
+usage: slurm-job-exporter.py [-h] [--port PORT]
+
+Promtheus exporter for jobs running with Slurm within a cgroup
+
+optional arguments:
+  -h, --help   show this help message and exit
+  --port PORT  Collector http port, default is 9798
+``` 
+
 ## Sample
 ```
 # HELP memory_usage Memory used by a job
