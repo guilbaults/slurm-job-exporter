@@ -53,35 +53,35 @@ def split_range(s):
 class SlurmJobCollector(object):
     def collect(self):
         gauge_memory_usage = GaugeMetricFamily(
-            'memory_usage', 'Memory used by a job',
+            'job_memory_usage', 'Memory used by a job',
             labels=['user', 'job'])
         gauge_memory_max = GaugeMetricFamily(
-            'memory_max', 'Maximum memory used by a job',
+            'job_memory_max', 'Maximum memory used by a job',
             labels=['user', 'job'])
         gauge_memory_limit = GaugeMetricFamily(
-            'memory_limit', 'Memory limit of a job',
+            'job_memory_limit', 'Memory limit of a job',
             labels=['user', 'job'])
         counter_core_usage = CounterMetricFamily(
-            'core_usage', 'Cpu usage of cores allocated to a job',
+            'job_core_usage', 'Cpu usage of cores allocated to a job',
             labels=['user', 'job', 'core'])
 
         if monitor_gpu:
             gauge_memory_usage_gpu = GaugeMetricFamily(
-                'memory_usage_gpu', 'Memory used by a job on a GPU',
+                'job_memory_usage_gpu', 'Memory used by a job on a GPU',
                 labels=['user', 'job', 'gpu', 'gpu_type'])
             gauge_power_gpu = GaugeMetricFamily(
-                'power_gpu', 'Power used by a job on a GPU in mW',
+                'job_power_gpu', 'Power used by a job on a GPU in mW',
                 labels=['user', 'job', 'gpu', 'gpu_type'])
             gauge_utilization_gpu = GaugeMetricFamily(
-                'utilization_gpu', 'Percent of time over the past sample \
+                'job_utilization_gpu', 'Percent of time over the past sample \
 period during which one or more kernels was executing on the GPU.',
                 labels=['user', 'job', 'gpu', 'gpu_type'])
             gauge_memory_utilization_gpu = GaugeMetricFamily(
-                'memory_utilization_gpu', 'Percent of time over the past \
+                'job_memory_utilization_gpu', 'Percent of time over the past \
 sample period during which global (device) memory was being read or written.',
                 labels=['user', 'job', 'gpu', 'gpu_type'])
             gauge_pcie_gpu = GaugeMetricFamily(
-                'pcie_gpu', 'PCIe throughput in KB/s',
+                'job_pcie_gpu', 'PCIe throughput in KB/s',
                 labels=['user', 'job', 'gpu', 'gpu_type', 'direction'])
 
         for uid_dir in glob.glob("/sys/fs/cgroup/memory/slurm/uid_*"):
