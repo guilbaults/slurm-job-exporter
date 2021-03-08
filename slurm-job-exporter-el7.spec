@@ -1,12 +1,11 @@
 Name:	  slurm-job-exporter
 Version:  0.0.1
-%global gittag 0.0.1
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
 License:  Apache License 2.0
 URL:      https://github.com/guilbaults/slurm-job-exporter
-Source0:  https://github.com/guilbaults/%{name}/archive/v%{gittag}/%{name}-%{version}.tar.gz
+Source0:  https://github.com/guilbaults%{name}/%{name}-%{version}.tar.gz
 
 BuildArch:      noarch
 BuildRequires:	systemd
@@ -16,7 +15,6 @@ Requires:       python3
 Prometheus exporter for the stats in the cgroup accounting with slurm. This will also collect stats of a job using NVIDIA GPUs.
 
 %prep
-%autosetup -n %{name}-%{gittag}
 %setup -q
 
 %build
@@ -37,5 +35,5 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
-* Fri Mar  5 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.1-1
+* Mon Mar  8 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.1-1
 - Initial release
