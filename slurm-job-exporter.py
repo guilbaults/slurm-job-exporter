@@ -1,10 +1,9 @@
-from prometheus_client.core import REGISTRY, GaugeMetricFamily, \
-    CounterMetricFamily
-from prometheus_client import start_http_server
+from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily
+from prometheus_client import make_wsgi_app
+from wsgiref.simple_server import make_server, WSGIRequestHandler
 import glob
 import os
 import argparse
-import time
 import subprocess
 import re
 from functools import lru_cache
@@ -26,9 +25,10 @@ def get_username(uid):
 
 def cgroup_processes(uid, job):
     procs = []
-    for i in ['step_batch', 'step_extern']:
+    step_g = '/sys/fs/cgroup/memory/slurm/uid_{}/job_{}/step_*'
+    for step in glob.glob(step_g.format(uid, job)):
         g = '/sys/fs/cgroup/memory/slurm/uid_{}/job_{}/{}/task_*'.format(
-            uid, job, i)
+            uid, job, step.split('/')[-1])
         for process_file in glob.glob(g):
             with open(process_file + '/tasks', 'r') as f:
                 for proc in f.readlines():
@@ -53,35 +53,37 @@ def split_range(s):
 class SlurmJobCollector(object):
     def collect(self):
         gauge_memory_usage = GaugeMetricFamily(
-            'job_memory_usage', 'Memory used by a job',
+            'slurm_job_memory_usage', 'Memory used by a job',
             labels=['user', 'job'])
         gauge_memory_max = GaugeMetricFamily(
-            'job_memory_max', 'Maximum memory used by a job',
+            'slurm_job_memory_max', 'Maximum memory used by a job',
             labels=['user', 'job'])
         gauge_memory_limit = GaugeMetricFamily(
-            'job_memory_limit', 'Memory limit of a job',
+            'slurm_job_memory_limit', 'Memory limit of a job',
             labels=['user', 'job'])
         counter_core_usage = CounterMetricFamily(
-            'job_core_usage', 'Cpu usage of cores allocated to a job',
+            'slurm_job_core_usage', 'Cpu usage of cores allocated to a job',
             labels=['user', 'job', 'core'])
 
         if monitor_gpu:
             gauge_memory_usage_gpu = GaugeMetricFamily(
-                'job_memory_usage_gpu', 'Memory used by a job on a GPU',
+                'slurm_job_memory_usage_gpu', 'Memory used by a job on a GPU',
                 labels=['user', 'job', 'gpu', 'gpu_type'])
             gauge_power_gpu = GaugeMetricFamily(
-                'job_power_gpu', 'Power used by a job on a GPU in mW',
+                'slurm_job_power_gpu', 'Power used by a job on a GPU in mW',
                 labels=['user', 'job', 'gpu', 'gpu_type'])
             gauge_utilization_gpu = GaugeMetricFamily(
-                'job_utilization_gpu', 'Percent of time over the past sample \
-period during which one or more kernels was executing on the GPU.',
+                'slurm_job_utilization_gpu',
+                'Percent of time over the past sample period during which \
+one or more kernels was executing on the GPU.',
                 labels=['user', 'job', 'gpu', 'gpu_type'])
             gauge_memory_utilization_gpu = GaugeMetricFamily(
-                'job_memory_utilization_gpu', 'Percent of time over the past \
-sample period during which global (device) memory was being read or written.',
+                'slurm_job_utilization_gpu_memory',
+                'Percent of time over the past sample period during which \
+global (device) memory was being read or written.',
                 labels=['user', 'job', 'gpu', 'gpu_type'])
             gauge_pcie_gpu = GaugeMetricFamily(
-                'job_pcie_gpu', 'PCIe throughput in KB/s',
+                'slurm_job_pcie_gpu', 'PCIe throughput in KB/s',
                 labels=['user', 'job', 'gpu', 'gpu_type', 'direction'])
 
         for uid_dir in glob.glob("/sys/fs/cgroup/memory/slurm/uid_*"):
@@ -164,6 +166,11 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f:
             yield gauge_memory_utilization_gpu
             yield gauge_pcie_gpu
 
+
+class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
+    def log_message(self, format, *args):
+        pass
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Promtheus exporter for jobs running with Slurm \
@@ -175,7 +182,7 @@ within a cgroup')
         help='Collector http port, default is 9798')
     args = parser.parse_args()
 
-    start_http_server(args.port)
-    REGISTRY.register(SlurmJobCollector())
-    while True:
-        time.sleep(60)
+    app = make_wsgi_app(SlurmJobCollector())
+    httpd = make_server('', args.port, app,
+                        handler_class=NoLoggingWSGIRequestHandler)
+    httpd.serve_forever()

@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.0.1
+Version:  0.0.2
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -35,5 +35,7 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Wed Mar  10 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.2-1
+- Fixing a collecting bug, removing the sleep() and changing the metric prefixes to slurm_job
 * Mon Mar  8 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.1-1
 - Initial release
