@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.0.3
+Version:  0.0.4
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -35,6 +35,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Wed Apr 14 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.4-1
+- Grabbing slurm account and using a better way to match GPU to a job
 * Wed Apr  7 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.3-1
 - Replacing job by slurmjobid since it conflit with a internal field in Prometheus
 * Wed Mar  10 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.2-1
