@@ -2,10 +2,12 @@
 Prometheus exporter for the stats in the cgroup accounting with slurm. This will also collect stats of a job using NVIDIA GPUs.
 
 ## Requirements
+Slurm need to be configured with `JobAcctGatherType=jobacct_gather/cgroup`. Stats are collected from the cgroups created by Slurm for each job. 
+
 Python 3 with the following modules:
 
 * `prometheus_client`
-* `nvidia-ml-py`
+* `nvidia-ml-py` (optional)
 
 ## Usage
 ```
