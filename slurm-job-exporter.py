@@ -123,6 +123,9 @@ global (device) memory was being read or written.',
                                 for gpu in gpus:
                                     gpu_set.add(int(gpu))
                             break
+                else:
+                    # Could not find the env variables, slurm_adopt only fill the jobid
+                    account = "error"
 
                 with open(mem_path + 'memory.usage_in_bytes', 'r') as f:
                     gauge_memory_usage.add_metric([user, account, job], int(f.read()))
