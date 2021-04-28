@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.0.4
+Version:  0.0.5
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -35,6 +35,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Wed Apr 28 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.5-1
+- Adding a workaround to prevent a crash when the other nodes of a multinodes job is using slurm_adopt
 * Wed Apr 14 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.4-1
 - Grabbing slurm account and using a better way to match GPU to a job
 * Wed Apr  7 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.3-1
