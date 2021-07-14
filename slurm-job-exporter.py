@@ -14,6 +14,8 @@ try:
     print('Monitoring GPUs')
 except ImportError:
     monitor_gpu = False
+except pynvml.NVMLError_DriverNotLoaded:
+    monitor_gpu = False
 
 
 @lru_cache(maxsize=100)
