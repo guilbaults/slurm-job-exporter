@@ -72,6 +72,28 @@ class SlurmJobCollector(object):
         gauge_memory_limit = GaugeMetricFamily(
             'slurm_job_memory_limit', 'Memory limit of a job',
             labels=['user', 'account', 'slurmjobid'])
+        gauge_memory_cache = GaugeMetricFamily(
+            'slurm_job_memory_cache', 'bytes of page cache memory',
+            labels=['user', 'account', 'slurmjobid'])
+        gauge_memory_rss= GaugeMetricFamily(
+            'slurm_job_memory_rss', 'bytes of anonymous and swap cache memory (includes transparent hugepages).',
+            labels=['user', 'account', 'slurmjobid'])
+        gauge_memory_rss_huge = GaugeMetricFamily(
+            'slurm_job_memory_rss_huge', 'bytes of anonymous transparent hugepages',
+            labels=['user', 'account', 'slurmjobid'])
+        gauge_memory_mapped_file = GaugeMetricFamily(
+            'slurm_job_memory_mapped_file', 'bytes of mapped file (includes tmpfs/shmem)',
+            labels=['user', 'account', 'slurmjobid'])
+        gauge_memory_active_file = GaugeMetricFamily(
+            'slurm_job_memory_active_file', 'bytes of file-backed memory on active LRU list',
+            labels=['user', 'account', 'slurmjobid'])
+        gauge_memory_inactive_file = GaugeMetricFamily(
+            'slurm_job_memory_inactive_file', 'bytes of file-backed memory on inactive LRU list',
+            labels=['user', 'account', 'slurmjobid'])
+        gauge_memory_unevictable = GaugeMetricFamily(
+            'slurm_job_memory_unevictable', 'bytes of memory that cannot be reclaimed (mlocked etc)',
+            labels=['user', 'account', 'slurmjobid'])
+
         counter_core_usage = CounterMetricFamily(
             'slurm_job_core_usage', 'Cpu usage of cores allocated to a job',
             labels=['user', 'account', 'slurmjobid', 'core'])
@@ -136,6 +158,24 @@ global (device) memory was being read or written.',
                 with open(mem_path + 'memory.limit_in_bytes', 'r') as f:
                     gauge_memory_limit.add_metric([user, account, job], int(f.read()))
 
+                with open(mem_path + 'memory.stat', 'r') as f:
+                    for line in f.readlines():
+                        data = line.split()
+                        if data[0] == 'total_cache':
+                            gauge_memory_cache.add_metric([user, account, job], int(data[1]))
+                        elif data[0] == 'total_rss':
+                            gauge_memory_rss.add_metric([user, account, job], int(data[1]))
+                        elif data[0] == 'total_rss_huge':
+                            gauge_memory_rss_huge.add_metric([user, account, job], int(data[1]))
+                        elif data[0] == 'total_mapped_file':
+                            gauge_memory_mapped_file.add_metric([user, account, job], int(data[1]))
+                        elif data[0] == 'total_active_file':
+                            gauge_memory_active_file.add_metric([user, account, job], int(data[1]))
+                        elif data[0] == 'total_inactive_file':
+                            gauge_memory_inactive_file.add_metric([user, account, job], int(data[1]))
+                        elif data[0] == 'total_unevictable':
+                            gauge_memory_unevictable.add_metric([user, account, job], int(data[1]))
+
                 # get the allocated cores
                 with open('/sys/fs/cgroup/cpuset/slurm/uid_{}/job_{}/\
 cpuset.effective_cpus'.format(uid, job), 'r') as f:
@@ -172,6 +212,13 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f:
         yield gauge_memory_usage
         yield gauge_memory_max
         yield gauge_memory_limit
+        yield gauge_memory_cache
+        yield gauge_memory_rss
+        yield gauge_memory_rss_huge
+        yield gauge_memory_mapped_file
+        yield gauge_memory_active_file
+        yield gauge_memory_inactive_file
+        yield gauge_memory_unevictable
         yield counter_core_usage
 
         if monitor_gpu:
