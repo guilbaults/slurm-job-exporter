@@ -1,50 +1,58 @@
-from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily
-from prometheus_client import make_wsgi_app
-from wsgiref.simple_server import make_server, WSGIRequestHandler
 import glob
 import argparse
 import subprocess
 import re
 from functools import lru_cache
+from wsgiref.simple_server import make_server, WSGIRequestHandler
+from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily
+from prometheus_client import make_wsgi_app
 
 try:
     import pynvml
     pynvml.nvmlInit()
-    monitor_gpu = True
+    MONITOR_GPU = True
     print('Monitoring GPUs')
 except ImportError:
-    monitor_gpu = False
+    MONITOR_GPU = False
 except pynvml.NVMLError_DriverNotLoaded:
-    monitor_gpu = False
+    MONITOR_GPU = False
 
 
 @lru_cache(maxsize=100)
 def get_username(uid):
+    """
+    Convert a numerical uid to a username
+    """
     command = ['/usr/bin/id', '--name', '--user', '{}'.format(uid)]
     return subprocess.check_output(command).strip().decode()
 
 
 def cgroup_processes(uid, job):
+    """
+    Find all the PIDs for a cgroup of a user+job
+    """
     procs = []
     step_g = '/sys/fs/cgroup/memory/slurm/uid_{}/job_{}/step_*'
     for step in glob.glob(step_g.format(uid, job)):
-        g = '/sys/fs/cgroup/memory/slurm/uid_{}/job_{}/{}/task_*'.format(
+        cgroup = '/sys/fs/cgroup/memory/slurm/uid_{}/job_{}/{}/task_*'.format(
             uid, job, step.split('/')[-1])
-        for process_file in glob.glob(g):
-            with open(process_file + '/tasks', 'r') as f:
-                for proc in f.readlines():
+        for process_file in glob.glob(cgroup):
+            with open(process_file + '/tasks', 'r') as stats:
+                for proc in stats.readlines():
                     procs.append(proc.strip())
     return procs
 
 
-def split_range(s):
-    # split a range such as "0-1,3,5,10-13"
-    # to 0,1,3,5,10,11,12,13
+def split_range(range_str):
+    """"
+    split a range such as "0-1,3,5,10-13"
+    to 0,1,3,5,10,11,12,13
+    """
     ranges = []
-    for sub in s.split(','):
+    for sub in range_str.split(','):
         if '-' in sub:
-            r = sub.split('-')
-            for i in range(int(r[0]), int(r[1]) + 1):
+            subrange = sub.split('-')
+            for i in range(int(subrange[0]), int(subrange[1]) + 1):
                 ranges.append(i)
         else:
             ranges.append(int(sub))
@@ -52,17 +60,28 @@ def split_range(s):
 
 
 def get_env(pid):
+    """
+    Return the environment variables of a process
+    """
     environments = {}
-    with open ('/proc/{}/environ'.format(pid), 'r') as f:
-        for env in f.read().split('\000'):
-            r = re.match(r'(.*)=(.*)', env)
-            if r:
-                environments[r.group(1)] = r.group(2)
+    with open('/proc/{}/environ'.format(pid), 'r') as env_f:
+        for env in env_f.read().split('\000'):
+            r_env = re.match(r'(.*)=(.*)', env)
+            if r_env:
+                environments[r_env.group(1)] = r_env.group(2)
     return environments
 
 
 class SlurmJobCollector(object):
+    """
+    Used by a WSGI application to collect and return stats about currently
+    running slurm jobs on a node. This is using the stats from the cgroups
+    created by Slurm.
+    """
     def collect(self):
+        """
+        Run a collection cycle and update exported stats
+        """
         gauge_memory_usage = GaugeMetricFamily(
             'slurm_job_memory_usage', 'Memory used by a job',
             labels=['user', 'account', 'slurmjobid'])
@@ -75,30 +94,36 @@ class SlurmJobCollector(object):
         gauge_memory_cache = GaugeMetricFamily(
             'slurm_job_memory_cache', 'bytes of page cache memory',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_rss= GaugeMetricFamily(
-            'slurm_job_memory_rss', 'bytes of anonymous and swap cache memory (includes transparent hugepages).',
+        gauge_memory_rss = GaugeMetricFamily(
+            'slurm_job_memory_rss',
+            'bytes of anonymous and swap cache memory (includes transparent hugepages).',
             labels=['user', 'account', 'slurmjobid'])
         gauge_memory_rss_huge = GaugeMetricFamily(
-            'slurm_job_memory_rss_huge', 'bytes of anonymous transparent hugepages',
+            'slurm_job_memory_rss_huge',
+            'bytes of anonymous transparent hugepages',
             labels=['user', 'account', 'slurmjobid'])
         gauge_memory_mapped_file = GaugeMetricFamily(
-            'slurm_job_memory_mapped_file', 'bytes of mapped file (includes tmpfs/shmem)',
+            'slurm_job_memory_mapped_file',
+            'bytes of mapped file (includes tmpfs/shmem)',
             labels=['user', 'account', 'slurmjobid'])
         gauge_memory_active_file = GaugeMetricFamily(
-            'slurm_job_memory_active_file', 'bytes of file-backed memory on active LRU list',
+            'slurm_job_memory_active_file',
+            'bytes of file-backed memory on active LRU list',
             labels=['user', 'account', 'slurmjobid'])
         gauge_memory_inactive_file = GaugeMetricFamily(
-            'slurm_job_memory_inactive_file', 'bytes of file-backed memory on inactive LRU list',
+            'slurm_job_memory_inactive_file',
+            'bytes of file-backed memory on inactive LRU list',
             labels=['user', 'account', 'slurmjobid'])
         gauge_memory_unevictable = GaugeMetricFamily(
-            'slurm_job_memory_unevictable', 'bytes of memory that cannot be reclaimed (mlocked etc)',
+            'slurm_job_memory_unevictable',
+            'bytes of memory that cannot be reclaimed (mlocked etc)',
             labels=['user', 'account', 'slurmjobid'])
 
         counter_core_usage = CounterMetricFamily(
             'slurm_job_core_usage', 'Cpu usage of cores allocated to a job',
             labels=['user', 'account', 'slurmjobid', 'core'])
 
-        if monitor_gpu:
+        if MONITOR_GPU:
             gauge_memory_usage_gpu = GaugeMetricFamily(
                 'slurm_job_memory_usage_gpu', 'Memory used by a job on a GPU',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
@@ -134,32 +159,31 @@ global (device) memory was being read or written.',
                 user = get_username(uid)
                 gpu_set = set()
                 for proc in procs:
-                    with open ('/proc/{}/environ'.format(proc), 'r') as f:
-                        envs = get_env(proc)
-                        if 'SLURM_JOB_ACCOUNT' in envs:
-                            account = envs['SLURM_JOB_ACCOUNT']
+                    envs = get_env(proc)
+                    if 'SLURM_JOB_ACCOUNT' in envs:
+                        account = envs['SLURM_JOB_ACCOUNT']
 
-                            if monitor_gpu:
-                                if 'SLURM_JOB_GPUS' in envs:
-                                    gpus = envs['SLURM_JOB_GPUS'].split(',')
-                                elif 'SLURM_STEP_GPUS' in envs:
-                                    gpus = envs['SLURM_STEP_GPUS'].split(',')
-                                for gpu in gpus:
-                                    gpu_set.add(int(gpu))
-                            break
+                        if MONITOR_GPU:
+                            if 'SLURM_JOB_GPUS' in envs:
+                                gpus = envs['SLURM_JOB_GPUS'].split(',')
+                            elif 'SLURM_STEP_GPUS' in envs:
+                                gpus = envs['SLURM_STEP_GPUS'].split(',')
+                            for gpu in gpus:
+                                gpu_set.add(int(gpu))
+                        break
                 else:
                     # Could not find the env variables, slurm_adopt only fill the jobid
                     account = "error"
 
-                with open(mem_path + 'memory.usage_in_bytes', 'r') as f:
-                    gauge_memory_usage.add_metric([user, account, job], int(f.read()))
-                with open(mem_path + 'memory.max_usage_in_bytes', 'r') as f:
-                    gauge_memory_max.add_metric([user, account, job], int(f.read()))
-                with open(mem_path + 'memory.limit_in_bytes', 'r') as f:
-                    gauge_memory_limit.add_metric([user, account, job], int(f.read()))
+                with open(mem_path + 'memory.usage_in_bytes', 'r') as f_usage:
+                    gauge_memory_usage.add_metric([user, account, job], int(f_usage.read()))
+                with open(mem_path + 'memory.max_usage_in_bytes', 'r') as f_max:
+                    gauge_memory_max.add_metric([user, account, job], int(f_max.read()))
+                with open(mem_path + 'memory.limit_in_bytes', 'r') as f_limit:
+                    gauge_memory_limit.add_metric([user, account, job], int(f_limit.read()))
 
-                with open(mem_path + 'memory.stat', 'r') as f:
-                    for line in f.readlines():
+                with open(mem_path + 'memory.stat', 'r') as f_stats:
+                    for line in f_stats.readlines():
                         data = line.split()
                         if data[0] == 'total_cache':
                             gauge_memory_cache.add_metric([user, account, job], int(data[1]))
@@ -178,16 +202,16 @@ global (device) memory was being read or written.',
 
                 # get the allocated cores
                 with open('/sys/fs/cgroup/cpuset/slurm/uid_{}/job_{}/\
-cpuset.effective_cpus'.format(uid, job), 'r') as f:
-                    cores = split_range(f.read())
+cpuset.effective_cpus'.format(uid, job), 'r') as f_cores:
+                    cores = split_range(f_cores.read())
                 with open('/sys/fs/cgroup/cpu,cpuacct/slurm/uid_{}/job_{}/\
-cpuacct.usage_percpu'.format(uid, job), 'r') as f:
-                    cpu_usages = f.read().split()
+cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
+                    cpu_usages = f_usage.read().split()
                     for core in cores:
                         counter_core_usage.add_metric([user, account, job, str(core)],
                                                       int(cpu_usages[core]))
 
-                if monitor_gpu:
+                if MONITOR_GPU:
                     for gpu in gpu_set:
                         handle = pynvml.nvmlDeviceGetHandleByIndex(gpu)
                         gpu_type = pynvml.nvmlDeviceGetName(handle).decode()
@@ -221,7 +245,7 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f:
         yield gauge_memory_unevictable
         yield counter_core_usage
 
-        if monitor_gpu:
+        if MONITOR_GPU:
             yield gauge_memory_usage_gpu
             yield gauge_power_gpu
             yield gauge_utilization_gpu
@@ -230,21 +254,24 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f:
 
 
 class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
+    """
+    Class to remove logging of WSGI
+    """
     def log_message(self, format, *args):
         pass
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(
+    PARSER = argparse.ArgumentParser(
         description='Promtheus exporter for jobs running with Slurm \
 within a cgroup')
-    parser.add_argument(
+    PARSER.add_argument(
         '--port',
         type=int,
         default=9798,
         help='Collector http port, default is 9798')
-    args = parser.parse_args()
+    ARGS = PARSER.parse_args()
 
-    app = make_wsgi_app(SlurmJobCollector())
-    httpd = make_server('', args.port, app,
+    APP = make_wsgi_app(SlurmJobCollector())
+    HTTPD = make_server('', ARGS.port, APP,
                         handler_class=NoLoggingWSGIRequestHandler)
-    httpd.serve_forever()
+    HTTPD.serve_forever()
