@@ -24,94 +24,95 @@ optional arguments:
 ```
 # HELP slurm_job_memory_usage Memory used by a job
 # TYPE slurm_job_memory_usage gauge
-slurm_job_memory_usage{account="group1",slurmjobid="16767964",user="user1"} 5.673777152e+010
-slurm_job_memory_usage{account="group1",slurmjobid="16761306",user="user2"} 1.973624832e+09
-slurm_job_memory_usage{account="group1",slurmjobid="16761305",user="user2"} 2.264969216e+09
-slurm_job_memory_usage{account="group1",slurmjobid="16761228",user="user2"} 2.884288512e+09
+slurm_job_memory_usage{account="group1",slurmjobid="1",user="user1"} 1.634453504e+010
+slurm_job_memory_usage{account="group2",slurmjobid="2",user="user2"} 8.271761408e+09
 # HELP slurm_job_memory_max Maximum memory used by a job
 # TYPE slurm_job_memory_max gauge
-slurm_job_memory_max{account="group1",slurmjobid="16767964",user="user1"} 5.6738013184e+010
-slurm_job_memory_max{account="group1",slurmjobid="16761306",user="user2"} 2.049892352e+09
-slurm_job_memory_max{account="group1",slurmjobid="16761305",user="user2"} 2.264997888e+09
-slurm_job_memory_max{account="group1",slurmjobid="16761228",user="user2"} 2.980458496e+09
+slurm_job_memory_max{account="group1",slurmjobid="1",user="user1"} 1.6777220096e+010
+slurm_job_memory_max{account="group2",slurmjobid="2",user="user2"} 1.9686723584e+010
 # HELP slurm_job_memory_limit Memory limit of a job
 # TYPE slurm_job_memory_limit gauge
-slurm_job_memory_limit{account="group1",slurmjobid="16767964",user="user1"} 6.8719476736e+010
-slurm_job_memory_limit{account="group1",slurmjobid="16761306",user="user2"} 1.073741824e+010
-slurm_job_memory_limit{account="group1",slurmjobid="16761305",user="user2"} 1.073741824e+010
-slurm_job_memory_limit{account="group1",slurmjobid="16761228",user="user2"} 1.073741824e+010
+slurm_job_memory_limit{account="group1",slurmjobid="1",user="user1"} 1.6777216e+010
+slurm_job_memory_limit{account="group2",slurmjobid="2",user="user2"} 5.1539607552e+010
+# HELP slurm_job_memory_cache bytes of page cache memory
+# TYPE slurm_job_memory_cache gauge
+slurm_job_memory_cache{account="group1",slurmjobid="1",user="user1"} 1.0655563776e+010
+slurm_job_memory_cache{account="group2",slurmjobid="2",user="user2"} 8.0965632e+07
+# HELP slurm_job_memory_rss bytes of anonymous and swap cache memory (includes transparent hugepages).
+# TYPE slurm_job_memory_rss gauge
+slurm_job_memory_rss{account="group1",slurmjobid="1",user="user1"} 5.452480512e+09
+slurm_job_memory_rss{account="group2",slurmjobid="2",user="user2"} 7.846940672e+09
+# HELP slurm_job_memory_rss_huge bytes of anonymous transparent hugepages
+# TYPE slurm_job_memory_rss_huge gauge
+slurm_job_memory_rss_huge{account="group1",slurmjobid="1",user="user1"} 1.23731968e+09
+slurm_job_memory_rss_huge{account="group2",slurmjobid="2",user="user2"} 5.771362304e+09
+# HELP slurm_job_memory_mapped_file bytes of mapped file (includes tmpfs/shmem)
+# TYPE slurm_job_memory_mapped_file gauge
+slurm_job_memory_mapped_file{account="group1",slurmjobid="1",user="user1"} 2.4803328e+08
+slurm_job_memory_mapped_file{account="group2",slurmjobid="2",user="user2"} 4.933632e+07
+# HELP slurm_job_memory_active_file bytes of file-backed memory on active LRU list
+# TYPE slurm_job_memory_active_file gauge
+slurm_job_memory_active_file{account="group1",slurmjobid="1",user="user1"} 1.53145344e+08
+slurm_job_memory_active_file{account="group2",slurmjobid="2",user="user2"} 405504.0
+# HELP slurm_job_memory_inactive_file bytes of file-backed memory on inactive LRU list
+# TYPE slurm_job_memory_inactive_file gauge
+slurm_job_memory_inactive_file{account="group1",slurmjobid="1",user="user1"} 8.699912192e+09
+slurm_job_memory_inactive_file{account="group2",slurmjobid="2",user="user2"} 4.4879872e+07
+# HELP slurm_job_memory_unevictable bytes of memory that cannot be reclaimed (mlocked etc)
+# TYPE slurm_job_memory_unevictable gauge
+slurm_job_memory_unevictable{account="group1",slurmjobid="1",user="user1"} 0.0
+slurm_job_memory_unevictable{account="group2",slurmjobid="2",user="user2"} 0.0
 # HELP slurm_job_core_usage_total Cpu usage of cores allocated to a job
 # TYPE slurm_job_core_usage_total counter
-slurm_job_core_usage_total{account="group1",core="18",slurmjobid="16767964",user="user1"} 1.9894422351762e+013
-slurm_job_core_usage_total{account="group1",core="20",slurmjobid="16767964",user="user1"} 2.0269313668611e+013
-slurm_job_core_usage_total{account="group1",core="22",slurmjobid="16767964",user="user1"} 2.0005359820476e+013
-slurm_job_core_usage_total{account="group1",core="24",slurmjobid="16767964",user="user1"} 1.9959527685329e+013
-slurm_job_core_usage_total{account="group1",core="26",slurmjobid="16767964",user="user1"} 1.9928711737765e+013
-slurm_job_core_usage_total{account="group1",core="28",slurmjobid="16767964",user="user1"} 1.9930795813539e+013
-slurm_job_core_usage_total{account="group1",core="30",slurmjobid="16767964",user="user1"} 1.9981840929731e+013
-slurm_job_core_usage_total{account="group1",core="32",slurmjobid="16767964",user="user1"} 1.999003786346e+013
-slurm_job_core_usage_total{account="group1",core="1",slurmjobid="16761306",user="user2"} 1.38636676827e+011
-slurm_job_core_usage_total{account="group1",core="3",slurmjobid="16761306",user="user2"} 1.11455618511e+011
-slurm_job_core_usage_total{account="group1",core="5",slurmjobid="16761306",user="user2"} 8.5467479122e+010
-slurm_job_core_usage_total{account="group1",core="7",slurmjobid="16761306",user="user2"} 8.003129745e+010
-slurm_job_core_usage_total{account="group1",core="9",slurmjobid="16761306",user="user2"} 8.2835983178e+010
-slurm_job_core_usage_total{account="group1",core="11",slurmjobid="16761306",user="user2"} 8.0290729258e+010
-slurm_job_core_usage_total{account="group1",core="13",slurmjobid="16761306",user="user2"} 7.559852192e+010
-slurm_job_core_usage_total{account="group1",core="15",slurmjobid="16761306",user="user2"} 1.20074698286e+011
-slurm_job_core_usage_total{account="group1",core="17",slurmjobid="16761306",user="user2"} 1.38848698254e+011
-slurm_job_core_usage_total{account="group1",core="19",slurmjobid="16761306",user="user2"} 1.31007531893e+011
-slurm_job_core_usage_total{account="group1",core="0",slurmjobid="16761305",user="user2"} 7.3694637403e+010
-slurm_job_core_usage_total{account="group1",core="2",slurmjobid="16761305",user="user2"} 1.53043851085e+011
-slurm_job_core_usage_total{account="group1",core="4",slurmjobid="16761305",user="user2"} 1.35456747954e+011
-slurm_job_core_usage_total{account="group1",core="6",slurmjobid="16761305",user="user2"} 1.37753030743e+011
-slurm_job_core_usage_total{account="group1",core="8",slurmjobid="16761305",user="user2"} 1.18177450244e+011
-slurm_job_core_usage_total{account="group1",core="10",slurmjobid="16761305",user="user2"} 8.578527458e+010
-slurm_job_core_usage_total{account="group1",core="12",slurmjobid="16761305",user="user2"} 7.1694327955e+010
-slurm_job_core_usage_total{account="group1",core="14",slurmjobid="16761305",user="user2"} 1.04234670793e+011
-slurm_job_core_usage_total{account="group1",core="34",slurmjobid="16761305",user="user2"} 7.9575309731e+010
-slurm_job_core_usage_total{account="group1",core="36",slurmjobid="16761305",user="user2"} 8.0867897065e+010
-slurm_job_core_usage_total{account="group1",core="16",slurmjobid="16761228",user="user2"} 3.6710739094e+010
-slurm_job_core_usage_total{account="group1",core="21",slurmjobid="16761228",user="user2"} 1.909029415447e+012
-slurm_job_core_usage_total{account="group1",core="23",slurmjobid="16761228",user="user2"} 1.510500678372e+012
-slurm_job_core_usage_total{account="group1",core="25",slurmjobid="16761228",user="user2"} 1.360207129614e+012
-slurm_job_core_usage_total{account="group1",core="27",slurmjobid="16761228",user="user2"} 1.624474633884e+012
-slurm_job_core_usage_total{account="group1",core="29",slurmjobid="16761228",user="user2"} 1.600589392158e+012
-slurm_job_core_usage_total{account="group1",core="31",slurmjobid="16761228",user="user2"} 1.98745099097e+012
-slurm_job_core_usage_total{account="group1",core="33",slurmjobid="16761228",user="user2"} 1.816077051646e+012
-slurm_job_core_usage_total{account="group1",core="35",slurmjobid="16761228",user="user2"} 1.790231247047e+012
-slurm_job_core_usage_total{account="group1",core="38",slurmjobid="16761228",user="user2"} 2.5595053422e+010
+slurm_job_core_usage_total{account="group1",core="1",slurmjobid="1",user="user1"} 1.165134620225e+012
+slurm_job_core_usage_total{account="group1",core="5",slurmjobid="1",user="user1"} 1.209891619592e+012
+slurm_job_core_usage_total{account="group2",core="4",slurmjobid="2",user="user2"} 5.711518455e+012
 # HELP slurm_job_memory_usage_gpu Memory used by a job on a GPU
 # TYPE slurm_job_memory_usage_gpu gauge
-slurm_job_memory_usage_gpu{account="group1",gpu="3",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16767964",user="user1"} 1.65937152e+09
-slurm_job_memory_usage_gpu{account="group1",gpu="1",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761306",user="user2"} 1.5498477568e+010
-slurm_job_memory_usage_gpu{account="group1",gpu="0",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761305",user="user2"} 1.5498477568e+010
-slurm_job_memory_usage_gpu{account="group1",gpu="2",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761228",user="user2"} 1.5498477568e+010
+slurm_job_memory_usage_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 2.3420993536e+010
+slurm_job_memory_usage_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 1.5548284928e+010
 # HELP slurm_job_power_gpu Power used by a job on a GPU in mW
 # TYPE slurm_job_power_gpu gauge
-slurm_job_power_gpu{account="group1",gpu="3",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16767964",user="user1"} 53257.0
-slurm_job_power_gpu{account="group1",gpu="1",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761306",user="user2"} 193506.0
-slurm_job_power_gpu{account="group1",gpu="0",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761305",user="user2"} 146698.0
-slurm_job_power_gpu{account="group1",gpu="2",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761228",user="user2"} 104854.0
+slurm_job_power_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 236037.0
+slurm_job_power_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 248523.0
 # HELP slurm_job_utilization_gpu Percent of time over the past sample period during which one or more kernels was executing on the GPU.
 # TYPE slurm_job_utilization_gpu gauge
-slurm_job_utilization_gpu{account="group1",gpu="3",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16767964",user="user1"} 28.0
-slurm_job_utilization_gpu{account="group1",gpu="1",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761306",user="user2"} 55.0
-slurm_job_utilization_gpu{account="group1",gpu="0",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761305",user="user2"} 52.0
-slurm_job_utilization_gpu{account="group1",gpu="2",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761228",user="user2"} 22.0
-# HELP slurm_job_memory_utilization_gpu Percent of time over the past sample period during which global (device) memory was being read or written.
-# TYPE slurm_job_memory_utilization_gpu gauge
-slurm_job_memory_utilization_gpu{account="group1",gpu="3",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16767964",user="user1"} 9.0
-slurm_job_memory_utilization_gpu{account="group1",gpu="1",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761306",user="user2"} 28.0
-slurm_job_memory_utilization_gpu{account="group1",gpu="0",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761305",user="user2"} 30.0
-slurm_job_memory_utilization_gpu{account="group1",gpu="2",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761228",user="user2"} 10.0
-# HELP slurm_job_pcie_gpu PCIe throughput in KB/s
-# TYPE slurm_job_pcie_gpu gauge
-slurm_job_pcie_gpu{account="group1",direction="TX",gpu="3",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16767964",user="user1"} 0.0
-slurm_job_pcie_gpu{account="group1",direction="RX",gpu="3",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16767964",user="user1"} 0.0
-slurm_job_pcie_gpu{account="group1",direction="TX",gpu="1",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761306",user="user2"} 16000.0
-slurm_job_pcie_gpu{account="group1",direction="RX",gpu="1",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761306",user="user2"} 21000.0
-slurm_job_pcie_gpu{account="group1",direction="TX",gpu="0",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761305",user="user2"} 15000.0
-slurm_job_pcie_gpu{account="group1",direction="RX",gpu="0",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761305",user="user2"} 67000.0
-slurm_job_pcie_gpu{account="group1",direction="TX",gpu="2",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761228",user="user2"} 7000.0
-slurm_job_pcie_gpu{account="group1",direction="RX",gpu="2",gpu_type="Tesla V100-SXM2-16GB",slurmjobid="16761228",user="user2"} 22000.0
+slurm_job_utilization_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 39.71356095628427
+slurm_job_utilization_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 92.63429206543753
+# HELP slurm_job_utilization_gpu_memory Percent of time over the past sample period during which global (device) memory was being read or written.
+# TYPE slurm_job_utilization_gpu_memory gauge
+slurm_job_utilization_gpu_memory{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 26.367425793004173
+slurm_job_utilization_gpu_memory{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 42.77153803389558
+# HELP slurm_job_sm_occupancy_gpu The ratio of number of warps resident on an SM. (number of resident as a ratio of the theoretical maximum number of warps per elapsed cycle)
+# TYPE slurm_job_sm_occupancy_gpu gauge
+slurm_job_sm_occupancy_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 19.923513946712788
+slurm_job_sm_occupancy_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 67.78674679458085
+# HELP slurm_job_tensor_gpu The ratio of cycles the tensor (HMMA) pipe is active (off the peak sustained elapsed cycles)
+# TYPE slurm_job_tensor_gpu gauge
+slurm_job_tensor_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 3.6616663501738054
+slurm_job_tensor_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 0.6733508372047148
+# HELP slurm_job_fp64_gpu Ratio of cycles the fp64 pipe is active
+# TYPE slurm_job_fp64_gpu gauge
+slurm_job_fp64_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 0.0
+slurm_job_fp64_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 0.0
+# HELP slurm_job_fp32_gpu Ratio of cycles the fp32 pipe is active
+# TYPE slurm_job_fp32_gpu gauge
+slurm_job_fp32_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 10.947193642079405
+slurm_job_fp32_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 35.73380486655263
+# HELP slurm_job_fp16_gpu Ratio of cycles the fp16 pipe is active
+# TYPE slurm_job_fp16_gpu gauge
+slurm_job_fp16_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 0.0
+slurm_job_fp16_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 0.0
+# HELP slurm_job_pcie_gpu_total PCIe tx/rx bytes
+# TYPE slurm_job_pcie_gpu_total counter
+slurm_job_pcie_gpu_total{account="group1",direction="TX",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 9.6079424e+07
+slurm_job_pcie_gpu_total{account="group1",direction="RX",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 8.1315216e+08
+slurm_job_pcie_gpu_total{account="group2",direction="TX",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 1.0392774e+07
+slurm_job_pcie_gpu_total{account="group2",direction="RX",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 4.4930668e+07
+# HELP slurm_job_nvlink_gpu_total Nvlink tx/rx bytes
+# TYPE slurm_job_nvlink_gpu_total counter
+slurm_job_nvlink_gpu_total{account="group1",direction="TX",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 0.0
+slurm_job_nvlink_gpu_total{account="group1",direction="RX",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 0.0
+slurm_job_nvlink_gpu_total{account="group2",direction="TX",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 0.0
+slurm_job_nvlink_gpu_total{account="group2",direction="RX",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 0.0
 ```

@@ -10,7 +10,7 @@ Source0:  https://github.com/guilbaults%{name}/%{name}-%{version}.tar.gz
 BuildArch:      noarch
 BuildRequires:	systemd
 Requires:       python3
-Requires:       python36-psutil
+Requires:       python3-psutil
 
 %description
 Prometheus exporter for the stats in the cgroup accounting with slurm. This will also collect stats of a job using NVIDIA GPUs.
