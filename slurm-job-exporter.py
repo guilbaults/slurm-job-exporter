@@ -2,20 +2,59 @@ import glob
 import argparse
 import subprocess
 import re
+import sys
+import psutil
 from functools import lru_cache
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily
 from prometheus_client import make_wsgi_app
 
-try:
-    import pynvml
-    pynvml.nvmlInit()
-    MONITOR_GPU = True
-    print('Monitoring GPUs')
-except ImportError:
-    MONITOR_GPU = False
-except pynvml.NVMLError_DriverNotLoaded:
-    MONITOR_GPU = False
+# Will be auto detected by the exporter
+MONITOR_DCGM = False
+MONITOR_PYNVML = False
+for proc in psutil.process_iter():
+    if proc.name() == 'nv-hostengine':
+        # DCGM is running on this host
+        # Load DCGM bindings from the RPM
+        sys.path.insert(0, '/usr/local/dcgm/bindings/python3/')
+
+        try:
+            from DcgmReader import DcgmReader
+            import dcgm_fields
+            # https://github.com/NVIDIA/gpu-monitoring-tools/blob/master/bindings/go/dcgm/dcgm_fields.h
+            dr = DcgmReader(fieldIds=[
+                dcgm_fields.DCGM_FI_DEV_NAME,
+                dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
+                dcgm_fields.DCGM_FI_DEV_FB_USED,
+                dcgm_fields.DCGM_FI_PROF_SM_ACTIVE,
+                dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY,
+                dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
+                dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE,
+                dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE,
+                dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE,
+                dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE,
+                dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES,
+                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES,
+                dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES,
+                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES,
+                ])
+            print('Monitoring GPUs with DCGM')
+            MONITOR_DCGM = True
+            MONITOR_PYNVML = False
+        except ImportError:
+            MONITOR_DCGM = False
+
+# using nvml as a fallback for DCGM
+if MONITOR_DCGM is False:
+    try:
+        import pynvml
+        pynvml.nvmlInit()
+        MONITOR_PYNVML = True
+        print('Monitoring GPUs with pynvml')
+    except ImportError:
+        MONITOR_PYNVML = False
+    except pynvml.NVMLError_DriverNotLoaded:
+        MONITOR_PYNVML = False
 
 
 @lru_cache(maxsize=100)
@@ -123,7 +162,8 @@ class SlurmJobCollector(object):
             'slurm_job_core_usage', 'Cpu usage of cores allocated to a job',
             labels=['user', 'account', 'slurmjobid', 'core'])
 
-        if MONITOR_GPU:
+        if MONITOR_PYNVML or MONITOR_DCGM:
+            # pynvml is used as a fallback for DCGM, both can collect GPU stats
             gauge_memory_usage_gpu = GaugeMetricFamily(
                 'slurm_job_memory_usage_gpu', 'Memory used by a job on a GPU',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
@@ -140,8 +180,37 @@ one or more kernels was executing on the GPU.',
                 'Percent of time over the past sample period during which \
 global (device) memory was being read or written.',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_pcie_gpu = GaugeMetricFamily(
-                'slurm_job_pcie_gpu', 'PCIe throughput in KB/s',
+
+        if MONITOR_DCGM:
+            # DCGM have additional metrics for GPU
+            gauge_sm_occupancy_gpu = GaugeMetricFamily(
+                'slurm_job_sm_occupancy_gpu',
+                'The ratio of number of warps resident on an SM. \
+(number of resident as a ratio of the theoretical maximum number of warps \
+per elapsed cycle)',
+                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            gauge_tensor_gpu = GaugeMetricFamily(
+                'slurm_job_tensor_gpu',
+                'The ratio of cycles the tensor (HMMA) pipe is active \
+(off the peak sustained elapsed cycles)',
+                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            gauge_fp64_gpu = GaugeMetricFamily(
+                'slurm_job_fp64_gpu',
+                'Ratio of cycles the fp64 pipe is active',
+                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            gauge_fp32_gpu = GaugeMetricFamily(
+                'slurm_job_fp32_gpu',
+                'Ratio of cycles the fp32 pipe is active',
+                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            gauge_fp16_gpu = GaugeMetricFamily(
+                'slurm_job_fp16_gpu',
+                'Ratio of cycles the fp16 pipe is active',
+                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            counter_nvlink_gpu = CounterMetricFamily(
+                'slurm_job_nvlink_gpu', 'Nvlink tx/rx bytes',
+                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
+            counter_pcie_gpu = CounterMetricFamily(
+                'slurm_job_pcie_gpu', 'PCIe tx/rx bytes',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
 
         for uid_dir in glob.glob("/sys/fs/cgroup/memory/slurm/uid_*"):
@@ -163,7 +232,7 @@ global (device) memory was being read or written.',
                     if 'SLURM_JOB_ACCOUNT' in envs:
                         account = envs['SLURM_JOB_ACCOUNT']
 
-                        if MONITOR_GPU:
+                        if MONITOR_PYNVML or MONITOR_DCGM:
                             if 'SLURM_JOB_GPUS' in envs:
                                 gpus = envs['SLURM_JOB_GPUS'].split(',')
                             elif 'SLURM_STEP_GPUS' in envs:
@@ -211,7 +280,7 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                         counter_core_usage.add_metric([user, account, job, str(core)],
                                                       int(cpu_usages[core]))
 
-                if MONITOR_GPU:
+                if MONITOR_PYNVML:
                     for gpu in gpu_set:
                         handle = pynvml.nvmlDeviceGetHandleByIndex(gpu)
                         gpu_type = pynvml.nvmlDeviceGetName(handle).decode()
@@ -226,12 +295,54 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                             [user, account, job, str(gpu), gpu_type], utils.gpu)
                         gauge_memory_utilization_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type], utils.memory)
-                        gauge_pcie_gpu.add_metric(
+
+                if MONITOR_DCGM:
+                    dcgm_data = dr.GetLatestGpuValuesAsDict(mapById=False)
+                    for gpu in gpu_set:
+                        gpu_type = dcgm_data[gpu]['name']
+                        # Converting DCGM data to the same format as NVML and reusing the same metrics
+                        gauge_memory_usage_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            int(dcgm_data[gpu]['fb_used']) * 1024 * 1024)  # convert to bytes
+                        gauge_power_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu]['power_usage'] * 1000)  # convert to mW
+                        gauge_utilization_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu]['sm_active'] * 100)  # convert to %
+                        gauge_memory_utilization_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu]['dram_active'] * 100)  # convert to %
+
+                        # Convert to % to keep the same format as NVML
+                        gauge_sm_occupancy_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu]['sm_occupancy'] * 100)
+                        gauge_tensor_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu]['tensor_active'] * 100)
+                        gauge_fp64_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu]['fp64_active'] * 100)
+                        gauge_fp32_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu]['fp32_active'] * 100)
+                        gauge_fp16_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu]['fp16_active'] * 100)
+
+                        counter_pcie_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'TX'],
-                            pynvml.nvmlDeviceGetPcieThroughput(handle, 0))
-                        gauge_pcie_gpu.add_metric(
+                            dcgm_data[gpu]['pcie_tx_bytes'])
+                        counter_pcie_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'RX'],
-                            pynvml.nvmlDeviceGetPcieThroughput(handle, 1))
+                            dcgm_data[gpu]['pcie_rx_bytes'])
+                        counter_nvlink_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type, 'TX'],
+                            dcgm_data[gpu]['nvlink_tx_bytes'])
+                        counter_nvlink_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type, 'RX'],
+                            dcgm_data[gpu]['nvlink_rx_bytes'])
 
         yield gauge_memory_usage
         yield gauge_memory_max
@@ -245,12 +356,19 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
         yield gauge_memory_unevictable
         yield counter_core_usage
 
-        if MONITOR_GPU:
+        if MONITOR_PYNVML or MONITOR_DCGM:
             yield gauge_memory_usage_gpu
             yield gauge_power_gpu
             yield gauge_utilization_gpu
             yield gauge_memory_utilization_gpu
-            yield gauge_pcie_gpu
+        if MONITOR_DCGM:
+            yield gauge_sm_occupancy_gpu
+            yield gauge_tensor_gpu
+            yield gauge_fp64_gpu
+            yield gauge_fp32_gpu
+            yield gauge_fp16_gpu
+            yield counter_pcie_gpu
+            yield counter_nvlink_gpu
 
 
 class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
@@ -259,6 +377,7 @@ class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
     """
     def log_message(self, format, *args):
         pass
+
 
 if __name__ == '__main__':
     PARSER = argparse.ArgumentParser(

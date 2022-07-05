@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.0.6
+Version:  0.0.7
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -10,6 +10,7 @@ Source0:  https://github.com/guilbaults%{name}/%{name}-%{version}.tar.gz
 BuildArch:      noarch
 BuildRequires:	systemd
 Requires:       python3
+Requires:       python3-psutil
 
 %description
 Prometheus exporter for the stats in the cgroup accounting with slurm. This will also collect stats of a job using NVIDIA GPUs.
@@ -35,6 +36,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Tue Jul  5 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.7-1
+- Collecting GPU stats with Nvidia DCGM and keeping NVML as a fallback
 * Fri Aug 13 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.6-1
 - Collecting more memory stats from each job cgroup
 * Wed Apr 28 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.5-1
