@@ -9,6 +9,8 @@ Python 3 with the following modules:
 * `prometheus_client`
 * `nvidia-ml-py` (optional)
 
+If DCGM is installed and running, it will be used instead of NVML. DCGM have more GPU stats compared to NVML.
+
 ## Usage
 ```
 usage: slurm-job-exporter.py [-h] [--port PORT]
