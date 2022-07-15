@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.0.7
+Version:  0.0.8
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -36,6 +36,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Fri Jul 15 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.8-1
+- Handle utf8 characters in job's environment
 * Tue Jul  5 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.7-1
 - Collecting GPU stats with Nvidia DCGM and keeping NVML as a fallback
 * Fri Aug 13 2021 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.6-1
