@@ -1,4 +1,4 @@
-name: RPM Build
+name: RPM Build centos7
 on: push
 
 jobs:
