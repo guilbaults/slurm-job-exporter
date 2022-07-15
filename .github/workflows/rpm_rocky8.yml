@@ -9,7 +9,7 @@ jobs:
 
     - name: build RPM package
       id: rpm
-      uses: naveenrajm7/rpmbuild@centos8
+      uses: guilbaults/rpmbuild@rocky8
       with:
         spec_file: "slurm-job-exporter-el8.spec"
 
