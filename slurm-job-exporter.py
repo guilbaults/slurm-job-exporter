@@ -103,7 +103,7 @@ def get_env(pid):
     Return the environment variables of a process
     """
     environments = {}
-    with open('/proc/{}/environ'.format(pid), 'r') as env_f:
+    with open('/proc/{}/environ'.format(pid), 'r', encoding='utf-8') as env_f:
         for env in env_f.read().split('\000'):
             r_env = re.match(r'(.*)=(.*)', env)
             if r_env:
