@@ -283,13 +283,20 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                 if MONITOR_PYNVML:
                     for gpu in gpu_set:
                         handle = pynvml.nvmlDeviceGetHandleByIndex(gpu)
-                        gpu_type = pynvml.nvmlDeviceGetName(handle).decode()
+                        name = pynvml.nvmlDeviceGetName(handle)
+                        if type(name) is str:
+                            gpu_type = pynvml.nvmlDeviceGetName(handle)
+                        else:
+                            gpu_type = pynvml.nvmlDeviceGetName(handle).decode()
                         gauge_memory_usage_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             int(pynvml.nvmlDeviceGetMemoryInfo(handle).used))
-                        gauge_power_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            pynvml.nvmlDeviceGetPowerUsage(handle))
+                        try:
+                            gauge_power_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type],
+                                pynvml.nvmlDeviceGetPowerUsage(handle))
+                        except pynvml.NVMLError_NotSupported:
+                            pass
                         utils = pynvml.nvmlDeviceGetUtilizationRates(handle)
                         gauge_utilization_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type], utils.gpu)
