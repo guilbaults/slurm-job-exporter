@@ -1,9 +1,6 @@
 name: RPM Build rocky8
 on:
     push:
-      # Sequence of patterns matched against refs/tags
-      tags:
-        - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
 
 jobs:
   build:
@@ -11,14 +8,15 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: build RPM package
-      id: rpm
-      uses: guilbaults/rpmbuild@rocky8
+    - name: Package RPM and SRPM
+      uses: xmidt-org/rpm-package-action@v1
       with:
-        spec_file: "slurm-job-exporter-el8.spec"
+        path: .
+        spec: slurm-job-exporter-el8.spec
+        distro: rocky-8
 
     - name: Upload artifact
       uses: actions/upload-artifact@v1.0.0
       with:
         name: Rocky 8 binary RPM
-        path: ${{ steps.rpm.outputs.rpm_dir_path }}
+        path: output/*
