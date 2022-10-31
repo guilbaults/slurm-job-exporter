@@ -237,6 +237,9 @@ per elapsed cycle)',
                                 gpus = envs['SLURM_JOB_GPUS'].split(',')
                             elif 'SLURM_STEP_GPUS' in envs:
                                 gpus = envs['SLURM_STEP_GPUS'].split(',')
+                            else:
+                                # Running a CPU job on a GPU node
+                                gpus = []
                             for gpu in gpus:
                                 gpu_set.add(int(gpu))
                         break
