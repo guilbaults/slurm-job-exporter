@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.0.9
+Version:  0.0.10
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -36,6 +36,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Mon Oct 31 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.10-1
+- Adding support of GPU-less job on a GPU node
 * Tue Oct 18 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.9-1
 - Power stats is now optional since its not visible in NVIDIA-GRID
 * Fri Jul 15 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.8-1
