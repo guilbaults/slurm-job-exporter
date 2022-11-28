@@ -76,9 +76,13 @@ def cgroup_processes(uid, job):
         cgroup = '/sys/fs/cgroup/memory/slurm/uid_{}/job_{}/{}/task_*'.format(
             uid, job, step.split('/')[-1])
         for process_file in glob.glob(cgroup):
-            with open(process_file + '/tasks', 'r') as stats:
+            with open(process_file + '/cgroup.procs', 'r') as stats:
                 for proc in stats.readlines():
-                    procs.append(proc.strip())
+                    # check if process is not running as root
+                    # a long sleep running as root can be found in step_extern
+                    ps = psutil.Process(int(proc))
+                    if ps.username() != 'root':
+                        procs.append(int(proc))
     return procs
 
 
@@ -161,6 +165,13 @@ class SlurmJobCollector(object):
         counter_core_usage = CounterMetricFamily(
             'slurm_job_core_usage', 'Cpu usage of cores allocated to a job',
             labels=['user', 'account', 'slurmjobid', 'core'])
+
+        gauge_process_count = GaugeMetricFamily(
+            'slurm_job_process_count', 'Number of processes in a job',
+            labels=['user', 'account', 'slurmjobid'])
+        gauge_threads_count = GaugeMetricFamily(
+            'slurm_job_threads_count', 'Number of threads in a job',
+            labels=['user', 'account', 'slurmjobid'])
 
         if MONITOR_PYNVML or MONITOR_DCGM:
             # pynvml is used as a fallback for DCGM, both can collect GPU stats
@@ -283,6 +294,20 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                         counter_core_usage.add_metric([user, account, job, str(core)],
                                                       int(cpu_usages[core]))
 
+                processes = 0
+                tasks = 0
+                for proc in procs:
+                    p = psutil.Process(proc)
+                    cmdline = p.cmdline()
+                    if cmdline[0] == '/bin/bash':
+                        if '/var/spool' in cmdline[1] and 'slurm_script' in cmdline[1]:
+                            # This is the bash script of the job, we don't want to count it
+                            continue
+                    processes += 1
+                    tasks += p.num_threads()
+                gauge_process_count.add_metric([user, account, job], processes)
+                gauge_threads_count.add_metric([user, account, job], tasks)
+
                 if MONITOR_PYNVML:
                     for gpu in gpu_set:
                         handle = pynvml.nvmlDeviceGetHandleByIndex(gpu)
@@ -365,6 +390,8 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
         yield gauge_memory_inactive_file
         yield gauge_memory_unevictable
         yield counter_core_usage
+        yield gauge_process_count
+        yield gauge_threads_count
 
         if MONITOR_PYNVML or MONITOR_DCGM:
             yield gauge_memory_usage_gpu
