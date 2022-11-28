@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.0.10
+Version:  0.0.11
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -36,6 +36,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Mon Nov 28 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.11-1
+- Measure the qty of processes and threads
 * Mon Oct 31 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.10-1
 - Adding support of GPU-less job on a GPU node
 * Tue Oct 18 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.9-1
