@@ -69,6 +69,14 @@ slurm_job_memory_unevictable{account="group2",slurmjobid="2",user="user2"} 0.0
 slurm_job_core_usage_total{account="group1",core="1",slurmjobid="1",user="user1"} 1.165134620225e+012
 slurm_job_core_usage_total{account="group1",core="5",slurmjobid="1",user="user1"} 1.209891619592e+012
 slurm_job_core_usage_total{account="group2",core="4",slurmjobid="2",user="user2"} 5.711518455e+012
+# HELP slurm_job_process_count Number of processes in a job
+# TYPE slurm_job_process_count gauge
+slurm_job_process_count{account="group1",slurmjobid="1",user="user1"} 1.0
+slurm_job_process_count{account="group2",slurmjobid="2",user="user2"} 10.0
+# HELP slurm_job_threads_count Number of threads in a job
+# TYPE slurm_job_threads_count gauge
+slurm_job_threads_count{account="group1",slurmjobid="1",user="user1"} 9.0
+slurm_job_threads_count{account="group2",slurmjobid="2",user="user2"} 58.0
 # HELP slurm_job_memory_usage_gpu Memory used by a job on a GPU
 # TYPE slurm_job_memory_usage_gpu gauge
 slurm_job_memory_usage_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 2.3420993536e+010
