@@ -80,9 +80,12 @@ def cgroup_processes(uid, job):
                 for proc in stats.readlines():
                     # check if process is not running as root
                     # a long sleep running as root can be found in step_extern
-                    ps = psutil.Process(int(proc))
-                    if ps.username() != 'root':
-                        procs.append(int(proc))
+                    try:
+                        ps = psutil.Process(int(proc))
+                        if ps.username() != 'root':
+                            procs.append(int(proc))
+                    except psutil.NoSuchProcess:
+                        pass
     return procs
 
 
@@ -171,7 +174,7 @@ class SlurmJobCollector(object):
             labels=['user', 'account', 'slurmjobid'])
         gauge_threads_count = GaugeMetricFamily(
             'slurm_job_threads_count', 'Number of threads in a job',
-            labels=['user', 'account', 'slurmjobid'])
+            labels=['user', 'account', 'slurmjobid', 'state'])
 
         if MONITOR_PYNVML or MONITOR_DCGM:
             # pynvml is used as a fallback for DCGM, both can collect GPU stats
@@ -295,18 +298,31 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                                                       int(cpu_usages[core]))
 
                 processes = 0
-                tasks = 0
+                tasks_state = {}
                 for proc in procs:
-                    p = psutil.Process(proc)
+                    try:
+                        p = psutil.Process(proc)
+                    except psutil.NoSuchProcess:
+                        continue
                     cmdline = p.cmdline()
                     if cmdline[0] == '/bin/bash':
-                        if '/var/spool' in cmdline[1] and 'slurm_script' in cmdline[1]:
-                            # This is the bash script of the job, we don't want to count it
-                            continue
+                        if len(cmdline) > 1:
+                            if '/var/spool' in cmdline[1] and 'slurm_script' in cmdline[1]:
+                                # This is the bash script of the job, we don't want to count it
+                                continue
                     processes += 1
-                    tasks += p.num_threads()
+
+                    for t in p.threads():
+                        pt = psutil.Process(t.id)
+                        pt_status = pt.status()
+                        if pt_status in tasks_state:
+                            tasks_state[pt_status] += 1
+                        else:
+                            tasks_state[pt_status] = 1
+
+                for status in tasks_state.keys():
+                    gauge_threads_count.add_metric([user, account, job, status], tasks_state[status])
                 gauge_process_count.add_metric([user, account, job], processes)
-                gauge_threads_count.add_metric([user, account, job], tasks)
 
                 if MONITOR_PYNVML:
                     for gpu in gpu_set:
