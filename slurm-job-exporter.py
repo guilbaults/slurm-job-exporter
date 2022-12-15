@@ -110,11 +110,14 @@ def get_env(pid):
     Return the environment variables of a process
     """
     environments = {}
-    with open('/proc/{}/environ'.format(pid), 'r', encoding='utf-8') as env_f:
-        for env in env_f.read().split('\000'):
-            r_env = re.match(r'(.*)=(.*)', env)
-            if r_env:
-                environments[r_env.group(1)] = r_env.group(2)
+    try:
+        with open('/proc/{}/environ'.format(pid), 'r', encoding='utf-8') as env_f:
+            for env in env_f.read().split('\000'):
+                r_env = re.match(r'(.*)=(.*)', env)
+                if r_env:
+                    environments[r_env.group(1)] = r_env.group(2)
+    except FileNotFoundError:
+        raise ValueError('Process {} environment does not exist'.format(pid))
     return environments
 
 
@@ -242,7 +245,11 @@ per elapsed cycle)',
                 user = get_username(uid)
                 gpu_set = set()
                 for proc in procs:
-                    envs = get_env(proc)
+                    try:
+                        envs = get_env(proc)
+                    except ValueError:
+                        # Process does not have an environment, its probably gone
+                        continue
                     if 'SLURM_JOB_ACCOUNT' in envs:
                         account = envs['SLURM_JOB_ACCOUNT']
 
@@ -305,6 +312,9 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                     except psutil.NoSuchProcess:
                         continue
                     cmdline = p.cmdline()
+                    if len(cmdline) == 0:
+                        # sometimes the cmdline is empty, we don't want to count it
+                        continue
                     if cmdline[0] == '/bin/bash':
                         if len(cmdline) > 1:
                             if '/var/spool' in cmdline[1] and 'slurm_script' in cmdline[1]:
@@ -313,7 +323,11 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                     processes += 1
 
                     for t in p.threads():
-                        pt = psutil.Process(t.id)
+                        try:
+                            pt = psutil.Process(t.id)
+                        except psutil.NoSuchProcess:
+                            # The thread disappeared between the time we got the list and now
+                            continue
                         pt_status = pt.status()
                         if pt_status in tasks_state:
                             tasks_state[pt_status] += 1
