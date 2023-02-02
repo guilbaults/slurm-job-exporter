@@ -53,6 +53,8 @@ if MONITOR_DCGM is False:
         print('Monitoring GPUs with pynvml')
     except ImportError:
         MONITOR_PYNVML = False
+    except pynvml.NVMLError_LibraryNotFound:
+        MONITOR_PYNVML = False
     except pynvml.NVMLError_DriverNotLoaded:
         MONITOR_PYNVML = False
 
