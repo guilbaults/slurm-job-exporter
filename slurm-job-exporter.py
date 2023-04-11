@@ -225,11 +225,11 @@ per elapsed cycle)',
                 'slurm_job_fp16_gpu',
                 'Ratio of cycles the fp16 pipe is active',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            counter_nvlink_gpu = CounterMetricFamily(
-                'slurm_job_nvlink_gpu', 'Nvlink tx/rx bytes',
+            gauge_nvlink_gpu = GaugeMetricFamily(
+                'slurm_job_nvlink_gpu', 'Nvlink tx/rx bytes per second',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
-            counter_pcie_gpu = CounterMetricFamily(
-                'slurm_job_pcie_gpu', 'PCIe tx/rx bytes',
+            gauge_pcie_gpu = GaugeMetricFamily(
+                'slurm_job_pcie_gpu', 'PCIe tx/rx bytes per second',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
 
         for uid_dir in glob.glob("/sys/fs/cgroup/memory/slurm/uid_*"):
@@ -398,16 +398,16 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu]['fp16_active'] * 100)
 
-                        counter_pcie_gpu.add_metric(
+                        gauge_pcie_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'TX'],
                             dcgm_data[gpu]['pcie_tx_bytes'])
-                        counter_pcie_gpu.add_metric(
+                        gauge_pcie_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'RX'],
                             dcgm_data[gpu]['pcie_rx_bytes'])
-                        counter_nvlink_gpu.add_metric(
+                        gauge_nvlink_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'TX'],
                             dcgm_data[gpu]['nvlink_tx_bytes'])
-                        counter_nvlink_gpu.add_metric(
+                        gauge_nvlink_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'RX'],
                             dcgm_data[gpu]['nvlink_rx_bytes'])
 
@@ -436,8 +436,8 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
             yield gauge_fp64_gpu
             yield gauge_fp32_gpu
             yield gauge_fp16_gpu
-            yield counter_pcie_gpu
-            yield counter_nvlink_gpu
+            yield gauge_pcie_gpu
+            yield gauge_nvlink_gpu
 
 
 class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
