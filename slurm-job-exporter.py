@@ -9,55 +9,6 @@ from wsgiref.simple_server import make_server, WSGIRequestHandler
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily
 from prometheus_client import make_wsgi_app
 
-# Will be auto detected by the exporter
-MONITOR_DCGM = False
-MONITOR_PYNVML = False
-for proc in psutil.process_iter():
-    if proc.name() == 'nv-hostengine':
-        # DCGM is running on this host
-        # Load DCGM bindings from the RPM
-        sys.path.insert(0, '/usr/local/dcgm/bindings/python3/')
-
-        try:
-            from DcgmReader import DcgmReader
-            import dcgm_fields
-            # https://github.com/NVIDIA/gpu-monitoring-tools/blob/master/bindings/go/dcgm/dcgm_fields.h
-            dr = DcgmReader(fieldIds=[
-                dcgm_fields.DCGM_FI_DEV_NAME,
-                dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
-                dcgm_fields.DCGM_FI_DEV_FB_USED,
-                dcgm_fields.DCGM_FI_PROF_SM_ACTIVE,
-                dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY,
-                dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
-                dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE,
-                dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE,
-                dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE,
-                dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE,
-                dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES,
-                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES,
-                dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES,
-                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES,
-                ])
-            print('Monitoring GPUs with DCGM')
-            MONITOR_DCGM = True
-            MONITOR_PYNVML = False
-        except ImportError:
-            MONITOR_DCGM = False
-
-# using nvml as a fallback for DCGM
-if MONITOR_DCGM is False:
-    try:
-        import pynvml
-        pynvml.nvmlInit()
-        MONITOR_PYNVML = True
-        print('Monitoring GPUs with pynvml')
-    except ImportError:
-        MONITOR_PYNVML = False
-    except pynvml.NVMLError_LibraryNotFound:
-        MONITOR_PYNVML = False
-    except pynvml.NVMLError_DriverNotLoaded:
-        MONITOR_PYNVML = False
-
 
 @lru_cache(maxsize=100)
 def get_username(uid):
@@ -129,6 +80,64 @@ class SlurmJobCollector(object):
     running slurm jobs on a node. This is using the stats from the cgroups
     created by Slurm.
     """
+    def __init__(self, dcgm_update_interval=10):
+        """
+        Args:
+            dcgm_update_interval (int, optional): Pooling interval in seconds used by DCGM. Defaults to 10.
+        """
+        # Will be auto detected by the exporter
+        self.MONITOR_DCGM = False
+        self.MONITOR_PYNVML = False
+        for proc in psutil.process_iter():
+            if proc.name() == 'nv-hostengine':
+                # DCGM is running on this host
+                # Load DCGM bindings from the RPM
+                sys.path.insert(0, '/usr/local/dcgm/bindings/python3/')
+
+                try:
+                    from DcgmReader import DcgmReader
+                    import dcgm_fields
+                    # https://github.com/NVIDIA/gpu-monitoring-tools/blob/master/bindings/go/dcgm/dcgm_fields.h
+                    self.reader = DcgmReader(
+                        # according to the docs, update frequency is actually the interval in microseconds and not a frequency
+                        updateFrequency=dcgm_update_interval * 1000 * 1000,
+                        fieldIds=[
+                            dcgm_fields.DCGM_FI_DEV_NAME,
+                            dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
+                            dcgm_fields.DCGM_FI_DEV_FB_USED,
+                            dcgm_fields.DCGM_FI_PROF_SM_ACTIVE,
+                            dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY,
+                            dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
+                            dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE,
+                            dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE,
+                            dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE,
+                            dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE,
+                            dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES,
+                            dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES,
+                            dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES,
+                            dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES,
+                        ])
+                    print('Monitoring GPUs with DCGM with an update interval of {} seconds'.format(dcgm_update_interval))
+                    self.MONITOR_DCGM = True
+                    self.MONITOR_PYNVML = False
+                except ImportError:
+                    self.MONITOR_DCGM = False
+
+        # using nvml as a fallback for DCGM
+        if self.MONITOR_DCGM is False:
+            try:
+                import pynvml
+                pynvml.nvmlInit()
+                self.MONITOR_PYNVML = True
+                print('Monitoring GPUs with pynvml')
+                self.pynvml = pynvml
+            except ImportError:
+                self.MONITOR_PYNVML = False
+            except pynvml.NVMLError_LibraryNotFound:
+                self.MONITOR_PYNVML = False
+            except pynvml.NVMLError_DriverNotLoaded:
+                self.MONITOR_PYNVML = False
+
     def collect(self):
         """
         Run a collection cycle and update exported stats
@@ -181,7 +190,7 @@ class SlurmJobCollector(object):
             'slurm_job_threads_count', 'Number of threads in a job',
             labels=['user', 'account', 'slurmjobid', 'state'])
 
-        if MONITOR_PYNVML or MONITOR_DCGM:
+        if self.MONITOR_PYNVML or self.MONITOR_DCGM:
             # pynvml is used as a fallback for DCGM, both can collect GPU stats
             gauge_memory_usage_gpu = GaugeMetricFamily(
                 'slurm_job_memory_usage_gpu', 'Memory used by a job on a GPU',
@@ -200,7 +209,7 @@ one or more kernels was executing on the GPU.',
 global (device) memory was being read or written.',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
 
-        if MONITOR_DCGM:
+        if self.MONITOR_DCGM:
             # DCGM have additional metrics for GPU
             gauge_sm_occupancy_gpu = GaugeMetricFamily(
                 'slurm_job_sm_occupancy_gpu',
@@ -255,7 +264,7 @@ per elapsed cycle)',
                     if 'SLURM_JOB_ACCOUNT' in envs:
                         account = envs['SLURM_JOB_ACCOUNT']
 
-                        if MONITOR_PYNVML or MONITOR_DCGM:
+                        if self.MONITOR_PYNVML or self.MONITOR_DCGM:
                             if 'SLURM_JOB_GPUS' in envs:
                                 gpus = envs['SLURM_JOB_GPUS'].split(',')
                             elif 'SLURM_STEP_GPUS' in envs:
@@ -340,31 +349,31 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                     gauge_threads_count.add_metric([user, account, job, status], tasks_state[status])
                 gauge_process_count.add_metric([user, account, job], processes)
 
-                if MONITOR_PYNVML:
+                if self.MONITOR_PYNVML:
                     for gpu in gpu_set:
-                        handle = pynvml.nvmlDeviceGetHandleByIndex(gpu)
-                        name = pynvml.nvmlDeviceGetName(handle)
+                        handle = self.pynvml.nvmlDeviceGetHandleByIndex(gpu)
+                        name = self.pynvml.nvmlDeviceGetName(handle)
                         if type(name) is str:
-                            gpu_type = pynvml.nvmlDeviceGetName(handle)
+                            gpu_type = self.pynvml.nvmlDeviceGetName(handle)
                         else:
-                            gpu_type = pynvml.nvmlDeviceGetName(handle).decode()
+                            gpu_type = self.pynvml.nvmlDeviceGetName(handle).decode()
                         gauge_memory_usage_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            int(pynvml.nvmlDeviceGetMemoryInfo(handle).used))
+                            int(self.pynvml.nvmlDeviceGetMemoryInfo(handle).used))
                         try:
                             gauge_power_gpu.add_metric(
                                 [user, account, job, str(gpu), gpu_type],
-                                pynvml.nvmlDeviceGetPowerUsage(handle))
-                        except pynvml.NVMLError_NotSupported:
+                                self.pynvml.nvmlDeviceGetPowerUsage(handle))
+                        except self.pynvml.NVMLError_NotSupported:
                             pass
-                        utils = pynvml.nvmlDeviceGetUtilizationRates(handle)
+                        utils = self.pynvml.nvmlDeviceGetUtilizationRates(handle)
                         gauge_utilization_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type], utils.gpu)
                         gauge_memory_utilization_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type], utils.memory)
 
-                if MONITOR_DCGM:
-                    dcgm_data = dr.GetLatestGpuValuesAsDict(mapById=False)
+                if self.MONITOR_DCGM:
+                    dcgm_data = self.reader.GetLatestGpuValuesAsDict(mapById=False)
                     for gpu in gpu_set:
                         gpu_type = dcgm_data[gpu]['name']
                         # Converting DCGM data to the same format as NVML and reusing the same metrics
@@ -425,12 +434,12 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
         yield gauge_process_count
         yield gauge_threads_count
 
-        if MONITOR_PYNVML or MONITOR_DCGM:
+        if self.MONITOR_PYNVML or self.MONITOR_DCGM:
             yield gauge_memory_usage_gpu
             yield gauge_power_gpu
             yield gauge_utilization_gpu
             yield gauge_memory_utilization_gpu
-        if MONITOR_DCGM:
+        if self.MONITOR_DCGM:
             yield gauge_sm_occupancy_gpu
             yield gauge_tensor_gpu
             yield gauge_fp64_gpu
@@ -457,9 +466,14 @@ within a cgroup')
         type=int,
         default=9798,
         help='Collector http port, default is 9798')
+    PARSER.add_argument(
+        '--dcgm-update-interval',
+        type=int,
+        default=10,
+        help='DCGM update interval in seconds, default is 10')
     ARGS = PARSER.parse_args()
 
-    APP = make_wsgi_app(SlurmJobCollector())
+    APP = make_wsgi_app(SlurmJobCollector(dcgm_update_interval=ARGS.dcgm_update_interval))
     HTTPD = make_server('', ARGS.port, APP,
                         handler_class=NoLoggingWSGIRequestHandler)
     HTTPD.serve_forever()
