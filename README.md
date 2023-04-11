@@ -115,14 +115,14 @@ slurm_job_fp32_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slu
 # TYPE slurm_job_fp16_gpu gauge
 slurm_job_fp16_gpu{account="group1",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 0.0
 slurm_job_fp16_gpu{account="group2",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 0.0
-# HELP slurm_job_pcie_gpu_total PCIe tx/rx bytes
-# TYPE slurm_job_pcie_gpu_total counter
+# HELP slurm_job_pcie_gpu_total PCIe tx/rx bytes per second
+# TYPE slurm_job_pcie_gpu_total gauge
 slurm_job_pcie_gpu_total{account="group1",direction="TX",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 9.6079424e+07
 slurm_job_pcie_gpu_total{account="group1",direction="RX",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 8.1315216e+08
 slurm_job_pcie_gpu_total{account="group2",direction="TX",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 1.0392774e+07
 slurm_job_pcie_gpu_total{account="group2",direction="RX",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 4.4930668e+07
-# HELP slurm_job_nvlink_gpu_total Nvlink tx/rx bytes
-# TYPE slurm_job_nvlink_gpu_total counter
+# HELP slurm_job_nvlink_gpu_total Nvlink tx/rx bytes per second
+# TYPE slurm_job_nvlink_gpu_total gauge
 slurm_job_nvlink_gpu_total{account="group1",direction="TX",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 0.0
 slurm_job_nvlink_gpu_total{account="group1",direction="RX",gpu="1",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="1",user="user1"} 0.0
 slurm_job_nvlink_gpu_total{account="group2",direction="TX",gpu="0",gpu_type="NVIDIA A100-SXM4-40GB",slurmjobid="2",user="user2"} 0.0
