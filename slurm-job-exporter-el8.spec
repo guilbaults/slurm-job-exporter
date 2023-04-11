@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.0.12
+Version:  0.0.13
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -36,6 +36,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Tue Apr 11 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.13-1
+- Fixing DCGM bandwidth gauges and adding --dcgm-update-interval parameter
 * Mon Nov 29 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.12-1
 - slurm_job_threads_count by thread status, can now distinguish sleeping, running, io-wait ...
 * Mon Nov 28 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.11-1
