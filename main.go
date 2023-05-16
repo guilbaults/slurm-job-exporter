@@ -1,13 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"os/user"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/containerd/cgroups"
+	"github.com/cri-o/cpuset"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/prometheus/procfs"
@@ -24,6 +28,7 @@ type cgroupCollector struct {
 	slurm_job_memory_active_file   *prometheus.Desc
 	slurm_job_memory_inactive_file *prometheus.Desc
 	slurm_job_memory_unevictable   *prometheus.Desc
+	slurm_job_core_usage           *prometheus.Desc
 }
 
 func newCgroupCollector() *cgroupCollector {
@@ -68,6 +73,10 @@ func newCgroupCollector() *cgroupCollector {
 			"bytes of memory that cannot be reclaimed (mlocked etc)",
 			[]string{"account", "slurmjobid", "user"}, nil,
 		),
+		slurm_job_core_usage: prometheus.NewDesc("slurm_job_core_usage",
+			"Cpu usage of cores allocated to a job",
+			[]string{"account", "slurmjobid", "user", "core"}, nil,
+		),
 	}
 }
 
@@ -82,6 +91,7 @@ func (collector *cgroupCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- collector.slurm_job_memory_active_file
 	ch <- collector.slurm_job_memory_inactive_file
 	ch <- collector.slurm_job_memory_unevictable
+	ch <- collector.slurm_job_core_usage
 }
 
 func (collector *cgroupCollector) Collect(ch chan<- prometheus.Metric) {
@@ -161,6 +171,22 @@ func (collector *cgroupCollector) Collect(ch chan<- prometheus.Metric) {
 			ch <- prometheus.MustNewConstMetric(collector.slurm_job_memory_unevictable, prometheus.GaugeValue,
 				float64(stats.Memory.Unevictable),
 				account, job_id, user.Username)
+
+			content, err := os.ReadFile("/sys/fs/cgroup/cpuset/slurm/uid_" + uid + "/job_" + job_id + "/cpuset.effective_cpus")
+			if err != nil {
+				log.Fatal(err)
+			}
+			cpuset_str := string(strings.TrimSuffix(string(content), "\n"))
+			parsed_cpuset, err := cpuset.Parse(cpuset_str)
+			if err != nil {
+				log.Fatal(err)
+			}
+			cpuset_slice := parsed_cpuset.ToSlice()
+			for i := range cpuset_slice {
+				ch <- prometheus.MustNewConstMetric(collector.slurm_job_core_usage, prometheus.CounterValue,
+					float64(stats.CPU.Usage.PerCPU[cpuset_slice[i]]),
+					account, job_id, user.Username, fmt.Sprintf("%v", cpuset_slice[i]))
+			}
 		}
 	}
 }
