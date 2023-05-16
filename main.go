@@ -29,6 +29,8 @@ type cgroupCollector struct {
 	slurm_job_memory_inactive_file *prometheus.Desc
 	slurm_job_memory_unevictable   *prometheus.Desc
 	slurm_job_core_usage           *prometheus.Desc
+	slurm_job_process_count        *prometheus.Desc
+	slurm_job_threads_count        *prometheus.Desc
 }
 
 func newCgroupCollector() *cgroupCollector {
@@ -76,6 +78,14 @@ func newCgroupCollector() *cgroupCollector {
 		slurm_job_core_usage: prometheus.NewDesc("slurm_job_core_usage",
 			"Cpu usage of cores allocated to a job",
 			[]string{"account", "slurmjobid", "user", "core"}, nil,
+		),
+		slurm_job_process_count: prometheus.NewDesc("slurm_job_process_count",
+			"Number of processes in a job",
+			[]string{"account", "slurmjobid", "user"}, nil,
+		),
+		slurm_job_threads_count: prometheus.NewDesc("slurm_job_threads_count",
+			"Number of threads in a job",
+			[]string{"account", "slurmjobid", "user", "state"}, nil,
 		),
 	}
 }
@@ -141,6 +151,13 @@ func (collector *cgroupCollector) Collect(ch chan<- prometheus.Metric) {
 				}
 			}
 
+			process_count := len(processes)
+			if process_count != 0 {
+				ch <- prometheus.MustNewConstMetric(collector.slurm_job_process_count, prometheus.GaugeValue,
+					float64(process_count),
+					account, job_id, user.Username)
+			}
+
 			ch <- prometheus.MustNewConstMetric(collector.slurm_job_memory_usage, prometheus.GaugeValue,
 				float64(stats.Memory.Usage.Usage),
 				account, job_id, user.Username)
@@ -186,6 +203,18 @@ func (collector *cgroupCollector) Collect(ch chan<- prometheus.Metric) {
 				ch <- prometheus.MustNewConstMetric(collector.slurm_job_core_usage, prometheus.CounterValue,
 					float64(stats.CPU.Usage.PerCPU[cpuset_slice[i]]),
 					account, job_id, user.Username, fmt.Sprintf("%v", cpuset_slice[i]))
+			}
+
+			if stats.CgroupStats != nil {
+				ch <- prometheus.MustNewConstMetric(collector.slurm_job_threads_count, prometheus.GaugeValue,
+					float64(stats.CgroupStats.NrRunning),
+					account, job_id, user.Username, "running")
+				ch <- prometheus.MustNewConstMetric(collector.slurm_job_threads_count, prometheus.GaugeValue,
+					float64(stats.CgroupStats.NrSleeping),
+					account, job_id, user.Username, "sleeping")
+				ch <- prometheus.MustNewConstMetric(collector.slurm_job_threads_count, prometheus.GaugeValue,
+					float64(stats.CgroupStats.NrIoWait),
+					account, job_id, user.Username, "disk-sleep")
 			}
 		}
 	}
