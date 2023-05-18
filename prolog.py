@@ -3,10 +3,13 @@ import sys
 # Load DCGM bindings
 sys.path.insert(0, '/usr/local/dcgm/bindings/python3/')
 
-import pydcgm
-import dcgm_fields
-import dcgm_structs
-import dcgm_agents
+try:
+    import pydcgm
+    import dcgm_fields
+    import dcgm_structs
+    import dcgm_agent
+except ImportError:
+    pydcgm = None
 
 
 def add_mig(handle, uuid, g_id):
@@ -41,6 +44,10 @@ def monitor_devices(devices, job_id):
         print("no GPUS for job, not monitoring")
         return
 
+    if pydcgm is None:
+        print("Could not load DCGM bindings, not monitoring")
+        return
+
     handle = pydcgm.DcgmHandle(None, 'localhost')
     g_id = dcgm_agent.dcgmGroupCreate(handle._handle, group_type=dcgm_structs.DCGM_GROUP_EMPTY, group_name=job_id)
 
@@ -49,7 +56,6 @@ def monitor_devices(devices, job_id):
         # TODO: Make sure what fields are working for MIG
         field_ids = [
             dcgm_fields.DCGM_FI_DEV_NAME,
-            dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
             dcgm_fields.DCGM_FI_DEV_FB_USED,
             dcgm_fields.DCGM_FI_PROF_SM_ACTIVE,
             dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY,
