@@ -291,8 +291,12 @@ class SlurmJobCollector:
                         account = envs['SLURM_JOB_ACCOUNT']
                     if self.is_mig and 'CUDA_VISIBLE_DEVICES' in envs:
                         visible_gpus = envs['CUDA_VISIBLE_DEVICES']
-                    if not self.is_mig and 'SLURM_JOB_GPUS' in envs:
-                        visible_gpus = envs['SLURM_JOB_GPUS']
+                    if not self.is_mig
+                        if 'SLURM_JOB_GPUS' in envs:
+                            visible_gpus = envs['SLURM_JOB_GPUS']
+                        elif 'SLURM_STEP_GPUS' in envs:
+                            visible_gpus = envs['SLURM_STEP_GPUS']
+
 
                 def basic_tag(p):
                     # Maybe tag with cluster and/or node
@@ -381,7 +385,8 @@ class SlurmJobCollector:
                 p.field("process_count", processes)
 
                 # This is skipped if we can't import the DCGM bindings
-                if pydcgm is not None:
+                # or there are no GPUs in use by the job
+                if pydcgm is not None and visible_gpus is not None:
                     gpus = visible_gpus.split(',')
                     for gpu in gpus:
                         for gdata in dcgm_data:
