@@ -5,9 +5,6 @@ import re
 import sys
 import psutil
 from functools import lru_cache
-from wsgiref.simple_server import make_server, WSGIRequestHandler
-import influxdb_client
-from influxdb_client.client.write_api import SYNCHRONOUS
 
 # Load DCGM bindings
 sys.path.insert(0, '/usr/local/dcgm/bindings/python3/')
@@ -18,17 +15,164 @@ try:
     import dcgm_structs
     import dcgm_agent
     import dcgm_field_helpers
+
+
+    GPU_LABEL_MAP = {
+        dcgm_fields.DCGM_FI_DEV_FB_USED: "memory_usage",
+        dcgm_fields.DCGM_FI_DEV_POWER_USAGE: "power",
+        dcgm_fields.DCGM_FI_PROF_SM_ACTIVE: "utilization",
+        dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY: "sm_occupancy",
+        dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE: "tensor",
+        dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE: "memory_utilization",
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE: "fp64",
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE: "fp32",
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE: "fp16",
+        dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES: "pcie_tx",
+        dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES: "pcie_rx",
+        dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES: "nvlink_tx",
+        dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES: "nvlink_rx",
+        }
+    FIELDS_MIG = [
+        dcgm_fields.DCGM_FI_DEV_NAME,
+        dcgm_fields.DCGM_FI_DEV_UUID,
+        dcgm_fields.DCGM_FI_DEV_FB_USED,
+        dcgm_fields.DCGM_FI_PROF_SM_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY,
+        dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE,
+        ]
+    FIELDS_GPU = [
+        dcgm_fields.DCGM_FI_DEV_NAME,
+        dcgm_fields.DCGM_FI_DEV_NVML_INDEX,
+        dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
+        dcgm_fields.DCGM_FI_DEV_FB_USED,
+        dcgm_fields.DCGM_FI_PROF_SM_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY,
+        dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE,
+        dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES,
+        dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES,
+        dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES,
+        dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES,
+        ]
+
 except ImportError:
     pydcgm = None
 
 
-def GetGroupIdByName(self, name):
-    for group_id in self.GetAllGroupIds():
-        groupInfo = dcgm_agent.dcgmGroupGetInfo(self._dcgmHandle.handle, group_id)
-        if groupInfo.groupName == name:
-            return group_id
+try:
+    import influxdb_client
+    from influxdb_client.client.write_api import SYNCHRONOUS
 
-    return None
+
+    class InfluxDBReporter:
+        def __init__(self, config, collector):
+            self.client = influxdb_client.InfluxDBClient(url=config.influx_url, token=config.influx_token, org=config.influx_org)
+            self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
+            self.config = config
+            self.collector = collector
+
+        def _map_point(self, point):
+            p = influxdb_client.Point(point.name)
+            for k, v in point.tags.items():
+                p.tag(k, v)
+            for k, v in point.fields.items():
+                p.field(k, v)
+            return p
+
+        def run(self):
+            while True:
+                sleep(config.interval)
+                influx_points = map(self._map_point, self.collector.collect())
+                # XXX: May have to do something extra to enable batching
+                self.write_api.write(influx_points)
+
+except ImportError:
+    InfluxDBReporter = None
+
+try:
+    from wsgiref.simple_server import make_server, WSGIRequestHandler
+    from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily
+    from prometheus_client import make_wsgi_app
+
+
+    class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
+        """
+        Class to remove logging of WSGI
+        """
+        def log_message(self, format, *args):
+            pass
+
+
+    class PrometheusCollector:
+        def __init__(self, collector):
+            self.collector = collector
+
+        def _point_to_metrics(self, point):
+            labels = list(point.tags.keys())
+            for name, value in point.fields.items():
+                metric = GaugeMetricFamily(f"{point.name}_{name}", "", labels=labels)
+                metric.add_metric(list(point.tags.values()), value)
+                yield metric
+
+        def collect(self):
+            points = self.collector.collect()
+            for p in points:
+                yield from self._point_to_metrics(p)
+
+
+    class PrometheusReporter:
+        def __init__(self, config, collector):
+            self.config = config
+            self.collector = PrometheusCollector(collector)
+
+        def run(self):
+            app = make_wsgi_app(self.collector)
+            httpd = make_server('', config.port, app, handler_class=NoLoggingWSGIRequestHandler)
+            httpd.serve_forever()
+
+
+except ImportError:
+    PrometheusReporter = None
+
+
+class DebugReporter:
+    def __init__(self, config, collector):
+        self.collector = collector
+
+    def _print_point(self, point):
+        print(f"METRIC: {point.name}")
+        print("TAGS:")
+        for k, v in point.tags.items():
+            print(f"{k}={v}")
+        print("FIELDS:")
+        for k, v in point.fields.items():
+            print(f"{k}={v}")
+
+    def run(self):
+        for point in self.collector.collect():
+            self._print_point(point)
+
+
+class Point:
+    def __init__(self, name):
+        self.name = name
+        self.tags = dict()
+        self.fields = dict()
+
+    def tag(self, name, value):
+        self.tags[name] = value
+        return self
+
+    def field(name, value):
+        self.fields[name] = value
+        return self
 
 
 @lru_cache(maxsize=100)
@@ -95,42 +239,32 @@ def get_env(pid):
     return environments
 
 
-class SlurmJobCollector(object):
-    """
-    Used by a WSGI application to collect and return stats about currently
-    running slurm jobs on a node. This is using the stats from the cgroups
-    created by Slurm.
+class SlurmJobCollector:
+    """Collect and return stats about currently running slurm jobs on a node.
+
+    This is using the stats from the cgroups created by Slurm.
     """
 
-    def __init__(self, influx_url, influx_org, influx_token):
-        self.client = influxdb_client.InfluxDBClient(url=url, token=token, org=org)
-        self.write_api = self.client.write_api(write_options=SYNCHRONOUS)
+    def __init__(self, config):
+        self.is_mig = False
         if pydcgm is not None:
-            self.GPU_LABEL_MAP = {
-                dcgm_fields.DCGM_FI_DEV_FB_USED: "memory_usage",
-                dcgm_fields.DCGM_FI_DEV_POWER_USAGE: "power",
-                dcgm_fields.DCGM_FI_PROF_SM_ACTIVE: "utilization",
-                dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY: "sm_occupancy",
-                dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE: "tensor",
-                dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE: "memory_utilization",
-                dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE: "fp64",
-                dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE: "fp32",
-                dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE: "fp16",
-                dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES: "pcie_tx",
-                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES: "pcie_rx",
-                dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES: "nvlink_tx",
-                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES: "nvlink_rx",
-                }
+            self.handle = pydcgm.DcgmHandle(None, 'localhost')
+            self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_ALL_INSTANCES)
+            self.is_mig = True
+            if len(self.group.GetEntities) == 0:
+                self.is_mig = False
+                self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_ALL_GPUS)
+            self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=FIELDS_MIG if self.is_mig else FIELDS_GPU)
+            self.group.samples.WatchFields(self.field_group, config.dcgm_update_interval*1000*1000, config.dcgm_update_interval*2.0, 0)
+            self.group.UpdateAllFields(1)
 
     def collect(self):
         """
         Run a collection cycle and update exported stats
         """
         if pydcgm is not None:
-            handle = pydcgm.DcgmHandle(None, 'localhost')
-            system = handle.GetSystem()
-        
-        
+            gpu_data = self.group.GetLatest_v2(self.field_group)[dcgm_fields.DCGM_FE_GPU_I if self.is_mig else dcgm_fields.DCGM_FE_GPU]
+
         points = []
         for uid_dir in glob.glob("/sys/fs/cgroup/memory/slurm/uid_*"):
             uid = uid_dir.split('/')[-1].split('_')[1]
@@ -143,6 +277,8 @@ class SlurmJobCollector(object):
                 if len(procs) == 0:
                     continue
 
+                account = "error"
+                visible_gpus = None
                 # Job is alive, we can get the stats
                 user = get_username(uid)
                 for proc in procs:
@@ -153,10 +289,10 @@ class SlurmJobCollector(object):
                         continue
                     if 'SLURM_JOB_ACCOUNT' in envs:
                         account = envs['SLURM_JOB_ACCOUNT']
-
-                else:
-                    # Could not find the env variables, slurm_adopt only fill the jobid
-                    account = "error"
+                    if self.is_mig and 'CUDA_VISIBLE_DEVICES' in envs:
+                        visible_gpus = envs['CUDA_VISIBLE_DEVICES']
+                    if not self.is_mig and 'SLURM_JOB_GPUS' in envs:
+                        visible_gpus = envs['SLURM_JOB_GPUS']
 
                 def basic_tag(p):
                     # Maybe tag with cluster and/or node
@@ -164,7 +300,7 @@ class SlurmJobCollector(object):
                     p.tag("account", account)
                     p.tag("slurmjobid", job)
 
-                p = influxdb_client.Point("slurm_job")
+                p = Point("slurm_job")
                 basic_tag(p)
                 points.append(p)
                 with open(mem_path + 'memory.usage_in_bytes', 'r') as f_usage:
@@ -200,13 +336,11 @@ class SlurmJobCollector(object):
                 with open('/sys/fs/cgroup/cpu,cpuacct/slurm/uid_{}/job_{}/cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                     cpu_usages = f_usage.read().split()
                     for core in cores:
-                        pc = influxdb_client.Point("slurm_job_percore")
+                        pc = Point("slurm_job_percore")
                         basic_tag(pc)
                         pc.tag("core", str(core))
                         pc.field("cpu_usage", int(cpu_usages[core]))
                         points.append(pc)
-                    # Add an overall summary
-                    p.field("cpu_usage", sum(cpu_usages)/len(cpu_usages))
 
                 processes = 0
                 tasks_state = {}
@@ -239,43 +373,65 @@ class SlurmJobCollector(object):
                             tasks_state[pt_status] = 1
 
                 for status in tasks_state.keys():
-                    pt = influxdb_client.Point("slurm_job_thread_perstate")
+                    pt = Point("slurm_job_thread_perstate")
                     basic_tag(pt)
                     pt.tag("state", status)
-                    pt.field("count", tasks_state[status))
+                    pt.field("count", tasks_state[status])
                     points.append(pt)
                 p.field("process_count", processes)
 
                 # This is skipped if we can't import the DCGM bindings
                 if pydcgm is not None:
-                    fg_id = system.GetFieldGroupIdByName(f"{job_id}-fg")
-                    g_id = GetGroupIdByName(job_id)
-                    dcgm_data = dcgm_field_helpers.DcgmFieldValueCollection(handle.handle, g_id)
-                    # This will fill in dcgm_data with callbacks
-                    dcgm_data.GetLatestValues_v2(fg_id)
+                    gpus = visible_gpus.split(',')
+                    for gpu in gpus:
+                        for gdata in dcgm_data:
+                            if self.is_mig:
+                                uuid = data.pop(dcgm_fields.DCGM_FI_DEV_UUID).values[0].value
+                                if uuid != gpu:
+                                    continue
+                            else:
+                                index = data.pop(dcgm_fields.DCGM_FI_DEV_NVML_INDEX).values[0].value
+                                if index != gpu:
+                                    continue
 
-                    for gpu, data in dcgm_data.items():
-                        pg = influxdb_client.Point("slurm_job_gpudata")
-                        basic_tag(pg)
-                        pg.tag("gpu", gpu)
+                            pg = Point("slurm_job_gpudata")
+                            basic_tag(pg)
+                            pg.tag("gpu", gpu)
+                            pg.tag("gpu_type", data.pop(dcgm_fields.DCGM_FI_DEV_NAME).values[0].value)
 
-                        gpu_type = get_value(data, dcgm_fields.DCGM_FI_DEV_NAME)
-                        pg.tag("gpu_type", gpu_type)
+                            for field, cell in data.items():
+                                v = cell.values[0]
+                                if v.isBlank:
+                                    continue
+                                pg.field(self.GPU_LABEL_MAP[field], v.value)
+                            points.append(pg)
+                            break
+                        else:
+                            print(f"WARNING: could not find gpu data for {gpu} (MIG: {self.is_mig})")
+        return points
 
-                        for field, cell in data.items():
-                            v = cell.values[0]
-                            if v.isBlank:
-                                continue
-                            pg.field(self.GPU_LABEL_MAP[field], v.value)
-                        points.append(pg)
-        # XXX: May have to do something extra to enable batching
-        self.write_api.write(points)
 
+REPORTER_MAP = {
+    'debug': DebugReporter,
+    'prometheus': PrometheusReporter,
+    'influxdb': InfluxDBReporter,
+}
 
 if __name__ == '__main__':
-    # parse config file
-    config = ...
-    collector = SlurmJobCollector(influx_url=config.influx_url, influx_token=config.influx_token, influx_org=config.influx_org)
-    while True:
-        sleep(config.interval)
-        collector.collect()
+    parser = argparse.ArgumentParser(description='Slurm job stats collector')
+    parser.add_argument(
+        '--port', type=int, default=9798, help='Prometheus collector http port')
+    parser.add_argument(
+        '--dcgm-update-interval', type=int, default=10, help='DCGM update interval, in seconds')
+    parser.add_argument(
+        '--reporter-type', choices=REPORTER_MAP.keys(), help='Which system to report stats to', required=True)
+    # TODO: add config options for influx
+    # Will probably need a config file since the options are supposed to be secret
+    config = parser.parse_args()
+    collector = SlurmJobCollector(config)
+    reporter_cls = REPORTER_MAP[config.reporter_type]
+    if reporter_cls is None:
+        print("ERROR: choosen reporter is not available")
+        sys.exit(1)
+    reporter = reporter_cls(config, collector)
+    reporter.run()
