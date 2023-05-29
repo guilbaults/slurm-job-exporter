@@ -251,7 +251,7 @@ class SlurmJobCollector:
             self.handle = pydcgm.DcgmHandle(None, 'localhost')
             self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_ALL_INSTANCES)
             self.is_mig = True
-            if len(self.group.GetEntities) == 0:
+            if len(self.group.GetEntities()) == 0:
                 self.is_mig = False
                 self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_ALL_GPUS)
             self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=FIELDS_MIG if self.is_mig else FIELDS_GPU)
@@ -291,7 +291,7 @@ class SlurmJobCollector:
                         account = envs['SLURM_JOB_ACCOUNT']
                     if self.is_mig and 'CUDA_VISIBLE_DEVICES' in envs:
                         visible_gpus = envs['CUDA_VISIBLE_DEVICES']
-                    if not self.is_mig
+                    if not self.is_mig:
                         if 'SLURM_JOB_GPUS' in envs:
                             visible_gpus = envs['SLURM_JOB_GPUS']
                         elif 'SLURM_STEP_GPUS' in envs:
