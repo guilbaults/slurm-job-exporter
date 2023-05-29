@@ -256,7 +256,7 @@ class SlurmJobCollector:
                 self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_ALL_GPUS)
             self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=FIELDS_MIG if self.is_mig else FIELDS_GPU)
             self.group.samples.WatchFields(self.field_group, config.dcgm_update_interval*1000*1000, config.dcgm_update_interval*2.0, 0)
-            self.group.UpdateAllFields(1)
+            self.handle.GetSystem().UpdateAllFields(True)
 
     def collect(self):
         """
