@@ -170,7 +170,7 @@ class Point:
         self.tags[name] = value
         return self
 
-    def field(name, value):
+    def field(self, name, value):
         self.fields[name] = value
         return self
 
@@ -351,10 +351,10 @@ class SlurmJobCollector:
                 tasks_state = {}
                 for proc in procs:
                     try:
-                        p = psutil.Process(proc)
+                        pr = psutil.Process(proc)
                     except psutil.NoSuchProcess:
                         continue
-                    cmdline = p.cmdline()
+                    cmdline = pr.cmdline()
                     if len(cmdline) == 0:
                         # sometimes the cmdline is empty, we don't want to count it
                         continue
@@ -365,7 +365,7 @@ class SlurmJobCollector:
                                 continue
                     processes += 1
 
-                    for t in p.threads():
+                    for t in pr.threads():
                         try:
                             pt = psutil.Process(t.id)
                         except psutil.NoSuchProcess:
@@ -390,26 +390,26 @@ class SlurmJobCollector:
                 if pydcgm is not None and visible_gpus is not None:
                     gpus = visible_gpus.split(',')
                     for gpu in gpus:
-                        for gdata in dcgm_data:
+                        for gdata in gpu_data.values():
                             if self.is_mig:
-                                uuid = data.pop(dcgm_fields.DCGM_FI_DEV_UUID).values[0].value
+                                uuid = gdata.pop(dcgm_fields.DCGM_FI_DEV_UUID).values[0].value
                                 if uuid != gpu:
                                     continue
                             else:
-                                index = data.pop(dcgm_fields.DCGM_FI_DEV_NVML_INDEX).values[0].value
+                                index = gdata.pop(dcgm_fields.DCGM_FI_DEV_NVML_INDEX).values[0].value
                                 if index != gpu:
                                     continue
 
                             pg = Point("slurm_job_gpudata")
                             basic_tag(pg)
                             pg.tag("gpu", gpu)
-                            pg.tag("gpu_type", data.pop(dcgm_fields.DCGM_FI_DEV_NAME).values[0].value)
+                            pg.tag("gpu_type", gdata.pop(dcgm_fields.DCGM_FI_DEV_NAME).values[0].value)
 
-                            for field, cell in data.items():
+                            for field, cell in gdata.items():
                                 v = cell.values[0]
                                 if v.isBlank:
                                     continue
-                                pg.field(self.GPU_LABEL_MAP[field], v.value)
+                                pg.field(GPU_LABEL_MAP[field], v.value)
                             points.append(pg)
                             break
                         else:
