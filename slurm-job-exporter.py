@@ -249,11 +249,12 @@ class SlurmJobCollector:
         self.is_mig = False
         if pydcgm is not None:
             self.handle = pydcgm.DcgmHandle(None, 'localhost')
-            self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_ALL_INSTANCES)
+            self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_DEFAULT_INSTANCES)
             self.is_mig = True
             if len(self.group.GetEntities()) == 0:
+                self.group.Delete()
                 self.is_mig = False
-                self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_ALL_GPUS)
+                self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_DEFAULT)
             self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=FIELDS_MIG if self.is_mig else FIELDS_GPU)
             self.group.samples.WatchFields(self.field_group, config.dcgm_update_interval*1000*1000, config.dcgm_update_interval*2.0, 0)
             self.handle.GetSystem().UpdateAllFields(True)
@@ -263,7 +264,7 @@ class SlurmJobCollector:
         Run a collection cycle and update exported stats
         """
         if pydcgm is not None:
-            gpu_data = self.group.GetLatest_v2(self.field_group)[dcgm_fields.DCGM_FE_GPU_I if self.is_mig else dcgm_fields.DCGM_FE_GPU]
+            gpu_data = self.group.samples.GetLatest_v2(self.field_group).values[dcgm_fields.DCGM_FE_GPU_I if self.is_mig else dcgm_fields.DCGM_FE_GPU]
 
         points = []
         for uid_dir in glob.glob("/sys/fs/cgroup/memory/slurm/uid_*"):
