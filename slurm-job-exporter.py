@@ -2,6 +2,7 @@ import glob
 import argparse
 import subprocess
 import re
+import socket
 import sys
 import psutil
 from functools import lru_cache
@@ -263,6 +264,7 @@ class SlurmJobCollector:
         """
         Run a collection cycle and update exported stats
         """
+        node = socket.gethostname()
         if pydcgm is not None:
             gpu_data = self.group.samples.GetLatest_v2(self.field_group).values[dcgm_fields.DCGM_FE_GPU_I if self.is_mig else dcgm_fields.DCGM_FE_GPU]
 
@@ -282,6 +284,7 @@ class SlurmJobCollector:
                 visible_gpus = None
                 # Job is alive, we can get the stats
                 user = get_username(uid)
+
                 for proc in procs:
                     try:
                         envs = get_env(proc)
@@ -290,8 +293,6 @@ class SlurmJobCollector:
                         continue
                     if 'SLURM_JOB_ACCOUNT' in envs:
                         account = envs['SLURM_JOB_ACCOUNT']
-                    if 'SLURMD_NODENAME' in envs:
-                        node = envs['SLURMD_NODENAME']
                     if self.is_mig and 'CUDA_VISIBLE_DEVICES' in envs:
                         visible_gpus = envs['CUDA_VISIBLE_DEVICES']
                     if not self.is_mig:
