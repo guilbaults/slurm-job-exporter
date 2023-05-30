@@ -290,6 +290,8 @@ class SlurmJobCollector:
                         continue
                     if 'SLURM_JOB_ACCOUNT' in envs:
                         account = envs['SLURM_JOB_ACCOUNT']
+                    if 'SLURMD_NODENAME' in envs:
+                        node = envs['SLURMD_NODENAME']
                     if self.is_mig and 'CUDA_VISIBLE_DEVICES' in envs:
                         visible_gpus = envs['CUDA_VISIBLE_DEVICES']
                     if not self.is_mig:
@@ -302,6 +304,7 @@ class SlurmJobCollector:
                 def basic_tag(p):
                     # Maybe tag with cluster and/or node
                     p.tag("user", user)
+                    p.tag("node", node)
                     p.tag("account", account)
                     p.tag("slurmjobid", job)
 
