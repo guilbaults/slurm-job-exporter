@@ -397,7 +397,7 @@ class SlurmJobCollector:
                                     continue
                             else:
                                 index = gdata.pop(dcgm_fields.DCGM_FI_DEV_NVML_INDEX).values[0].value
-                                if index != gpu:
+                                if index != int(gpu):
                                     continue
 
                             pg = Point("slurm_job_gpudata")
