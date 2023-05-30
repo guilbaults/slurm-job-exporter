@@ -396,20 +396,22 @@ class SlurmJobCollector:
                     for gpu in gpus:
                         for gdata in gpu_data.values():
                             if self.is_mig:
-                                uuid = gdata.pop(dcgm_fields.DCGM_FI_DEV_UUID).values[0].value
+                                uuid = gdata[dcgm_fields.DCGM_FI_DEV_UUID].values[0].value
                                 if uuid != gpu:
                                     continue
                             else:
-                                index = gdata.pop(dcgm_fields.DCGM_FI_DEV_NVML_INDEX).values[0].value
+                                index = gdata[dcgm_fields.DCGM_FI_DEV_NVML_INDEX].values[0].value
                                 if index != int(gpu):
                                     continue
 
                             pg = Point("slurm_job_gpudata")
                             basic_tag(pg)
                             pg.tag("gpu", gpu)
-                            pg.tag("gpu_type", gdata.pop(dcgm_fields.DCGM_FI_DEV_NAME).values[0].value)
+                            pg.tag("gpu_type", gdata[dcgm_fields.DCGM_FI_DEV_NAME].values[0].value)
 
                             for field, cell in gdata.items():
+                                if field not in GPU_LABEL_MAP:
+                                    continue
                                 v = cell.values[0]
                                 if v.isBlank:
                                     continue
