@@ -47,7 +47,7 @@ try:
         ]
     FIELDS_GPU = [
         dcgm_fields.DCGM_FI_DEV_NAME,
-        dcgm_fields.DCGM_FI_DEV_NVML_INDEX,
+        dcgm_fields.DCGM_FI_DEV_UUID,
         dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
         dcgm_fields.DCGM_FI_DEV_FB_USED,
         dcgm_fields.DCGM_FI_PROF_SM_ACTIVE,
@@ -208,6 +208,23 @@ def cgroup_processes(uid, job):
     return procs
 
 
+GPU_UUID_RE = re.compile('(GPU|MIG)-[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}')
+
+
+def cgroup_gpus(uid, job, is_mig):
+    res = subprocess.run(["cgexec", "-g", f"devices:slurm/uid_{uid}/job_{job}/", "nvidia-smi", "-L"], capture_output=True)
+    # This is most likely because cgexec or nvidia-smi are not on the machine
+    if res.returncode != 0:
+        return []
+    gpus = []
+    for line in res.stdout.split('\n'):
+        if is_mig and "MIG" not in line:
+            continue
+        m = GPU_UUID_RE.search(line)
+        if m is not None:
+            gpus.append(m.group(0))
+    return gpus
+
 def split_range(range_str):
     """"
     split a range such as "0-1,3,5,10-13"
@@ -280,8 +297,9 @@ class SlurmJobCollector:
                 if len(procs) == 0:
                     continue
 
+                visible_gpus = cgroup_gpus(uid, job, self.is_mig)
+
                 account = "error"
-                visible_gpus = None
                 # Job is alive, we can get the stats
                 user = get_username(uid)
 
@@ -293,14 +311,6 @@ class SlurmJobCollector:
                         continue
                     if 'SLURM_JOB_ACCOUNT' in envs:
                         account = envs['SLURM_JOB_ACCOUNT']
-                    if self.is_mig and 'CUDA_VISIBLE_DEVICES' in envs:
-                        visible_gpus = envs['CUDA_VISIBLE_DEVICES']
-                    if not self.is_mig:
-                        if 'SLURM_JOB_GPUS' in envs:
-                            visible_gpus = envs['SLURM_JOB_GPUS']
-                        elif 'SLURM_STEP_GPUS' in envs:
-                            visible_gpus = envs['SLURM_STEP_GPUS']
-
 
                 def basic_tag(p):
                     # Maybe tag with cluster and/or node
@@ -392,17 +402,11 @@ class SlurmJobCollector:
                 # This is skipped if we can't import the DCGM bindings
                 # or there are no GPUs in use by the job
                 if pydcgm is not None and visible_gpus is not None:
-                    gpus = visible_gpus.split(',')
-                    for gpu in gpus:
+                    for gpu in visible_gpus:
                         for gdata in gpu_data.values():
-                            if self.is_mig:
-                                uuid = gdata[dcgm_fields.DCGM_FI_DEV_UUID].values[0].value
-                                if uuid != gpu:
-                                    continue
-                            else:
-                                index = gdata[dcgm_fields.DCGM_FI_DEV_NVML_INDEX].values[0].value
-                                if index != int(gpu):
-                                    continue
+                            uuid = gdata[dcgm_fields.DCGM_FI_DEV_UUID].values[0].value
+                            if uuid != gpu:
+                                continue
 
                             pg = Point("slurm_job_gpudata")
                             basic_tag(pg)
