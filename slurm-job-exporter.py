@@ -17,20 +17,24 @@ try:
     import dcgm_field_helpers
 
 
+    def percent(v):
+        return v * 100
+
+
     GPU_LABEL_MAP = {
-        dcgm_fields.DCGM_FI_DEV_FB_USED: "memory_usage",
-        dcgm_fields.DCGM_FI_DEV_POWER_USAGE: "power",
-        dcgm_fields.DCGM_FI_PROF_SM_ACTIVE: "utilization",
-        dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY: "sm_occupancy",
-        dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE: "tensor",
-        dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE: "memory_utilization",
-        dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE: "fp64",
-        dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE: "fp32",
-        dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE: "fp16",
-        dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES: "pcie_tx",
-        dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES: "pcie_rx",
-        dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES: "nvlink_tx",
-        dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES: "nvlink_rx",
+        dcgm_fields.DCGM_FI_DEV_FB_USED: ("memory_usage_gpu", 'Memory used by a job on a GPU', lambda v: v * 1024 * 1024),
+        dcgm_fields.DCGM_FI_DEV_POWER_USAGE: ("power_gpu", 'Power used by a job on a GPU in mW', lambda v: v * 1000),
+        dcgm_fields.DCGM_FI_PROF_SM_ACTIVE: ("utilization_gpu", 'Percent of time over the past sample period during which one or more kernels was executing on the GPU.', percent),
+        dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY: ("sm_occupancy_gpu", 'The ratio of number of warps resident on an SM. (number of resident as a ratio of the theoretical maximum number of warps per elapsed cycle)' percent),
+        dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE: ("tensor_gpu", 'The ratio of cycles the tensor (HMMA) pipe is active (off the peak sustained elapsed cycles)', percent),
+        dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE: ("utilization_gpu_memory", 'Percent of time over the past sample period during which global (device) memory was being read or written.', percent),
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE: ("fp64_gpu", 'Ratio of cycles the fp64 pipe is active', percent),
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE: ("fp32_gpu", 'Ratio of cycles the fp32 pipe is active', percent),
+        dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE: ("fp16_gpu", 'Ratio of cycles the fp16 pipe is active', percent),
+        dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES: ("pcie_tx_gpu", 'PCIe tx bytes per second'),
+        dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES: ("pcie_rx_gpu", 'PCIe rx bytes per second'),
+        dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES: ("nvlink_tx_gpu", 'Nvlink tx bytes per second'),
+        dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES: ("nvlink_rx_gpu", 'Nvlink rx bytes per second')
         }
     FIELDS_MIG = [
         dcgm_fields.DCGM_FI_DEV_NAME,
@@ -117,7 +121,14 @@ try:
         def _point_to_metrics(self, point):
             labels = list(point.tags.keys())
             for name, value in point.fields.items():
-                metric = GaugeMetricFamily(f"{point.name}_{name}", "", labels=labels)
+                val, type, description = value
+                if type == 'gauge':
+                    mclass = GaugeMetricFamily
+                elif type == 'counter':
+                    mclass = CounterMetricFamily
+                else:
+                    raise ValueError("unknown metric type")
+                metric = mclass(f"{point.name}_{name}", description, labels=labels)
                 metric.add_metric(list(point.tags.values()), value)
                 yield metric
 
@@ -170,8 +181,8 @@ class Point:
         self.tags[name] = value
         return self
 
-    def field(self, name, value):
-        self.fields[name] = value
+    def field(self, name, value, *, type="gauge", description=""):
+        self.fields[name] = (value, type, description)
         return self
 
 
@@ -321,31 +332,31 @@ class SlurmJobCollector:
                 basic_tag(p)
                 points.append(p)
                 with open(mem_path + 'memory.usage_in_bytes', 'r') as f_usage:
-                    p.field("memory_usage", int(f_usage.read()))
+                    p.field("memory_usage", int(f_usage.read()), description='Memory used by a job')
 
                 with open(mem_path + 'memory.max_usage_in_bytes', 'r') as f_max:
-                    p.field("memory_max", int(f_max.read()))
+                    p.field("memory_max", int(f_max.read()), description='Maximum memory used by a job')
 
                 with open(mem_path + 'memory.limit_in_bytes', 'r') as f_limit:
-                    p.field("memory_limit", int(f_limit.read()))
+                    p.field("memory_limit", int(f_limit.read()), description='Memory limit of a job')
 
                 with open(mem_path + 'memory.stat', 'r') as f_stats:
                     for line in f_stats.readlines():
                         data = line.split()
                         if data[0] == 'total_cache':
-                            p.field("memory_cache", int(data[1]))
+                            p.field("memory_cache", int(data[1]), description='bytes of page cache memory')
                         elif data[0] == 'total_rss':
-                            p.field("memory_rss", int(data[1]))
+                            p.field("memory_rss", int(data[1]), description='bytes of anonymous and swap cache memory (includes transparent hugepages).')
                         elif data[0] == 'total_rss_huge':
-                            p.field("memory_rss_huge", int(data[1]))
+                            p.field("memory_rss_huge", int(data[1]), description='bytes of anonymous transparent hugepages')
                         elif data[0] == 'total_mapped_file':
-                            p.field("memory_mapped_file", int(data[1]))
+                            p.field("memory_mapped_file", int(data[1]), description='bytes of mapped file (includes tmpfs/shmem)')
                         elif data[0] == 'total_active_file':
-                            p.field("memory_active_file", int(data[1]))
+                            p.field("memory_active_file", int(data[1]), description='bytes of file-backed memory on active LRU list')
                         elif data[0] == 'total_inactive_file':
-                            p.field("memory_inactive_file", int(data[1]))
+                            p.field("memory_inactive_file", int(data[1]), description='bytes of file-backed memory on inactive LRU list')
                         elif data[0] == 'total_unevictable':
-                            p.field("memory_unevictable", int(data[1]))
+                            p.field("memory_unevictable", int(data[1]), description='bytes of memory that cannot be reclaimed (mlocked etc)')
 
                 # get the allocated cores
                 with open('/sys/fs/cgroup/cpuset/slurm/uid_{}/job_{}/cpuset.effective_cpus'.format(uid, job), 'r') as f_cores:
@@ -356,7 +367,7 @@ class SlurmJobCollector:
                         pc = Point("slurm_job_core")
                         basic_tag(pc)
                         pc.tag("core", str(core))
-                        pc.field("cpu_usage", int(cpu_usages[core]))
+                        pc.field("usage", int(cpu_usages[core]), typ="counter", description='Cpu usage of cores allocated to a job')
                         points.append(pc)
 
                 processes = 0
@@ -390,12 +401,12 @@ class SlurmJobCollector:
                             tasks_state[pt_status] = 1
 
                 for status in tasks_state.keys():
-                    pt = Point("slurm_job_thread_perstate")
+                    pt = Point("slurm_job_threads")
                     basic_tag(pt)
                     pt.tag("state", status)
-                    pt.field("count", tasks_state[status])
+                    pt.field("count", tasks_state[status], description='Number of threads in a job')
                     points.append(pt)
-                p.field("process_count", processes)
+                p.field("process_count", processes, description='Number of processes in a job')
 
                 # This is skipped if we can't import the DCGM bindings
                 # or there are no GPUs in use by the job
@@ -417,7 +428,11 @@ class SlurmJobCollector:
                                 v = cell.values[0]
                                 if v.isBlank:
                                     continue
-                                pg.field(GPU_LABEL_MAP[field] + '_gpu', v.value)
+                                fname, descr, *fn = GPU_LABEL_MAP[field]
+                                if fn:
+                                    f, = fn
+                                    v = f(v)
+                                pg.field(fname, v.value, description=descr)
                             points.append(pg)
                             break
                         else:
