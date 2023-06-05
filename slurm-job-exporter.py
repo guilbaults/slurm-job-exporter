@@ -13,13 +13,9 @@ try:
     import pydcgm
     import dcgm_fields
     import dcgm_structs
-    import dcgm_agent
-    import dcgm_field_helpers
-
 
     def percent(v):
         return v.value * 100
-
 
     GPU_LABEL_MAP = {
         dcgm_fields.DCGM_FI_DEV_FB_USED: ("memory_usage_gpu", 'Memory used by a job on a GPU', lambda v: v.value * 1024 * 1024),
@@ -72,8 +68,8 @@ except ImportError:
 
 try:
     import influxdb_client
+    import time
     from influxdb_client.client.write_api import SYNCHRONOUS
-
 
     class InfluxDBReporter:
         def __init__(self, config, collector):
@@ -92,7 +88,7 @@ try:
 
         def run(self):
             while True:
-                sleep(config.interval)
+                time.sleep(config.interval)
                 influx_points = map(self._map_point, self.collector.collect())
                 # XXX: May have to do something extra to enable batching
                 self.write_api.write(influx_points)
@@ -105,14 +101,12 @@ try:
     from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily
     from prometheus_client import make_wsgi_app
 
-
     class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
         """
         Class to remove logging of WSGI
         """
         def log_message(self, format, *args):
             pass
-
 
     class PrometheusCollector:
         def __init__(self, collector):
@@ -136,7 +130,6 @@ try:
             points = self.collector.collect()
             for p in points:
                 yield from self._point_to_metrics(p)
-
 
     class PrometheusReporter:
         def __init__(self, config, collector):
@@ -236,6 +229,7 @@ def cgroup_gpus(uid, job, is_mig):
         if m is not None:
             gpus.append(m.group(0))
     return gpus
+
 
 def split_range(range_str):
     """"
