@@ -15,11 +15,11 @@ try:
     import dcgm_structs
 
     def percent(v):
-        return v.value * 100
+        return v * 100
 
     GPU_LABEL_MAP = {
-        dcgm_fields.DCGM_FI_DEV_FB_USED: ("memory_usage_gpu", 'Memory used by a job on a GPU', lambda v: v.value * 1024 * 1024),
-        dcgm_fields.DCGM_FI_DEV_POWER_USAGE: ("power_gpu", 'Power used by a job on a GPU in mW', lambda v: v.value * 1000),
+        dcgm_fields.DCGM_FI_DEV_FB_USED: ("memory_usage_gpu", 'Memory used by a job on a GPU', lambda v: v * 1024 * 1024),
+        dcgm_fields.DCGM_FI_DEV_POWER_USAGE: ("power_gpu", 'Power used by a job on a GPU in mW', lambda v: v * 1000),
         dcgm_fields.DCGM_FI_PROF_SM_ACTIVE: ("utilization_gpu", 'Percent of time over the past sample period during which one or more kernels was executing on the GPU.', percent),
         dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY: ("sm_occupancy_gpu", 'The ratio of number of warps resident on an SM. (number of resident as a ratio of the theoretical maximum number of warps per elapsed cycle)', percent),
         dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE: ("tensor_gpu", 'The ratio of cycles the tensor (HMMA) pipe is active (off the peak sustained elapsed cycles)', percent),
@@ -423,10 +423,11 @@ class SlurmJobCollector:
                                 if v.isBlank:
                                     continue
                                 fname, descr, *fn = GPU_LABEL_MAP[field]
+                                val = v.value
                                 if fn:
                                     f, = fn
-                                    v = f(v)
-                                pg.field(fname, v, description=descr)
+                                    val = f(val)
+                                pg.field(fname, val, description=descr)
                             points.append(pg)
                             break
                         else:
