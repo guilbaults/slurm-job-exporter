@@ -18,14 +18,14 @@ try:
 
 
     def percent(v):
-        return v * 100
+        return v.value * 100
 
 
     GPU_LABEL_MAP = {
-        dcgm_fields.DCGM_FI_DEV_FB_USED: ("memory_usage_gpu", 'Memory used by a job on a GPU', lambda v: v * 1024 * 1024),
-        dcgm_fields.DCGM_FI_DEV_POWER_USAGE: ("power_gpu", 'Power used by a job on a GPU in mW', lambda v: v * 1000),
+        dcgm_fields.DCGM_FI_DEV_FB_USED: ("memory_usage_gpu", 'Memory used by a job on a GPU', lambda v: v.value * 1024 * 1024),
+        dcgm_fields.DCGM_FI_DEV_POWER_USAGE: ("power_gpu", 'Power used by a job on a GPU in mW', lambda v: v.value * 1000),
         dcgm_fields.DCGM_FI_PROF_SM_ACTIVE: ("utilization_gpu", 'Percent of time over the past sample period during which one or more kernels was executing on the GPU.', percent),
-        dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY: ("sm_occupancy_gpu", 'The ratio of number of warps resident on an SM. (number of resident as a ratio of the theoretical maximum number of warps per elapsed cycle)' percent),
+        dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY: ("sm_occupancy_gpu", 'The ratio of number of warps resident on an SM. (number of resident as a ratio of the theoretical maximum number of warps per elapsed cycle)', percent),
         dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE: ("tensor_gpu", 'The ratio of cycles the tensor (HMMA) pipe is active (off the peak sustained elapsed cycles)', percent),
         dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE: ("utilization_gpu_memory", 'Percent of time over the past sample period during which global (device) memory was being read or written.', percent),
         dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE: ("fp64_gpu", 'Ratio of cycles the fp64 pipe is active', percent),
@@ -121,15 +121,15 @@ try:
         def _point_to_metrics(self, point):
             labels = list(point.tags.keys())
             for name, value in point.fields.items():
-                val, type, description = value
-                if type == 'gauge':
+                val, field_type, description = value
+                if field_type == 'gauge':
                     mclass = GaugeMetricFamily
-                elif type == 'counter':
+                elif field_type == 'counter':
                     mclass = CounterMetricFamily
                 else:
                     raise ValueError("unknown metric type")
                 metric = mclass(f"{point.name}_{name}", description, labels=labels)
-                metric.add_metric(list(point.tags.values()), value)
+                metric.add_metric(list(point.tags.values()), value[0])
                 yield metric
 
         def collect(self):
@@ -181,8 +181,8 @@ class Point:
         self.tags[name] = value
         return self
 
-    def field(self, name, value, *, type="gauge", description=""):
-        self.fields[name] = (value, type, description)
+    def field(self, name, value, *, field_type="gauge", description=""):
+        self.fields[name] = (value, field_type, description)
         return self
 
 
@@ -367,7 +367,7 @@ class SlurmJobCollector:
                         pc = Point("slurm_job_core")
                         basic_tag(pc)
                         pc.tag("core", str(core))
-                        pc.field("usage", int(cpu_usages[core]), typ="counter", description='Cpu usage of cores allocated to a job')
+                        pc.field("usage", int(cpu_usages[core]), field_type="counter", description='Cpu usage of cores allocated to a job')
                         points.append(pc)
 
                 processes = 0
@@ -432,7 +432,7 @@ class SlurmJobCollector:
                                 if fn:
                                     f, = fn
                                     v = f(v)
-                                pg.field(fname, v.value, description=descr)
+                                pg.field(fname, v, description=descr)
                             points.append(pg)
                             break
                         else:
