@@ -2,7 +2,6 @@ import glob
 import argparse
 import subprocess
 import re
-import socket
 import sys
 import psutil
 from functools import lru_cache
@@ -212,12 +211,14 @@ GPU_UUID_RE = re.compile('(GPU|MIG)-[a-z0-9]{8}-([a-z0-9]{4}-){3}[a-z0-9]{12}')
 
 
 def cgroup_gpus(uid, job, is_mig):
-    res = subprocess.run(["cgexec", "-g", f"devices:slurm/uid_{uid}/job_{job}/", "nvidia-smi", "-L"], capture_output=True)
-    # This is most likely because cgexec or nvidia-smi are not on the machine
-    if res.returncode != 0:
+    try:
+        command = ["cgexec", "-g", f"devices:slurm/uid_{uid}/job_{job}/", "nvidia-smi", "-L"]
+        res = subprocess.check_output(command).strip().decode()
+    except FileNotFoundError:
+        # This is most likely because cgexec or nvidia-smi are not on the machine
         return []
     gpus = []
-    for line in res.stdout.split('\n'):
+    for line in res.split('\n'):
         if is_mig and "MIG" not in line:
             continue
         m = GPU_UUID_RE.search(line)
@@ -281,7 +282,6 @@ class SlurmJobCollector:
         """
         Run a collection cycle and update exported stats
         """
-        node = socket.gethostname()
         if pydcgm is not None:
             gpu_data = self.group.samples.GetLatest_v2(self.field_group).values[dcgm_fields.DCGM_FE_GPU_I if self.is_mig else dcgm_fields.DCGM_FE_GPU]
 
@@ -313,9 +313,7 @@ class SlurmJobCollector:
                         account = envs['SLURM_JOB_ACCOUNT']
 
                 def basic_tag(p):
-                    # Maybe tag with cluster and/or node
                     p.tag("user", user)
-                    p.tag("node", node)
                     p.tag("account", account)
                     p.tag("slurmjobid", job)
 
@@ -355,7 +353,7 @@ class SlurmJobCollector:
                 with open('/sys/fs/cgroup/cpu,cpuacct/slurm/uid_{}/job_{}/cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                     cpu_usages = f_usage.read().split()
                     for core in cores:
-                        pc = Point("slurm_job_percore")
+                        pc = Point("slurm_job_core")
                         basic_tag(pc)
                         pc.tag("core", str(core))
                         pc.field("cpu_usage", int(cpu_usages[core]))
@@ -408,7 +406,7 @@ class SlurmJobCollector:
                             if uuid != gpu:
                                 continue
 
-                            pg = Point("slurm_job_gpudata")
+                            pg = Point("slurm_job")
                             basic_tag(pg)
                             pg.tag("gpu", gpu)
                             pg.tag("gpu_type", gdata[dcgm_fields.DCGM_FI_DEV_NAME].values[0].value)
@@ -419,7 +417,7 @@ class SlurmJobCollector:
                                 v = cell.values[0]
                                 if v.isBlank:
                                     continue
-                                pg.field(GPU_LABEL_MAP[field], v.value)
+                                pg.field(GPU_LABEL_MAP[field] + '_gpu', v.value)
                             points.append(pg)
                             break
                         else:
