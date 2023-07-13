@@ -11,6 +11,7 @@ BuildArch:      noarch
 BuildRequires:	systemd
 Requires:       python3
 Requires:       python3-psutil
+Requires:       libcgroup-tools
 
 %description
 Prometheus exporter for the stats in the cgroup accounting with slurm. This will also collect stats of a job using NVIDIA GPUs.

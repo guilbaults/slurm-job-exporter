@@ -10,6 +10,9 @@ from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily
 from prometheus_client import make_wsgi_app
 
 
+GPU_UUID_RE = re.compile('(GPU|MIG)-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})')
+
+
 @lru_cache(maxsize=100)
 def get_username(uid):
     """
@@ -74,6 +77,26 @@ def get_env(pid):
     return environments
 
 
+def cgroup_gpus(uid, job):
+    try:
+        command = ["cgexec", "-g", f"devices:slurm/uid_{uid}/job_{job}/", "nvidia-smi", "-L"]
+        res = subprocess.check_output(command).strip().decode()
+    except FileNotFoundError:
+        # This is most likely because cgexec or nvidia-smi are not on the machine
+        return []
+    gpus = []
+
+    mig = 'MIG' in res
+    for line in res.split('\n'):
+        m = GPU_UUID_RE.search(line)
+        if mig and m.group(1) == 'MIG':
+            gpus.append((None, m.group()))
+        elif not mig and m.group(1) == 'GPU':
+            gpu = str(line.split()[1].rstrip(':'))
+            gpus.append((gpu, m.group()))
+    return gpus
+
+
 class SlurmJobCollector(object):
     """
     Used by a WSGI application to collect and return stats about currently
@@ -95,28 +118,42 @@ class SlurmJobCollector(object):
                 sys.path.insert(0, '/usr/local/dcgm/bindings/python3/')
 
                 try:
-                    from DcgmReader import DcgmReader
+                    import pydcgm
                     import dcgm_fields
+                    import dcgm_structs
+
+                    self.handle = pydcgm.DcgmHandle(None, 'localhost')
+                    self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_DEFAULT_INSTANCES)
+
+                    if len(self.group.GetEntities()) == 0:
+                        # No MIG, switch to default group
+                        self.group.Delete()
+                        self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_DEFAULT)
+
                     # https://github.com/NVIDIA/gpu-monitoring-tools/blob/master/bindings/go/dcgm/dcgm_fields.h
-                    self.reader = DcgmReader(
-                        # according to the docs, update frequency is actually the interval in microseconds and not a frequency
-                        updateFrequency=dcgm_update_interval * 1000 * 1000,
-                        fieldIds=[
-                            dcgm_fields.DCGM_FI_DEV_NAME,
-                            dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
-                            dcgm_fields.DCGM_FI_DEV_FB_USED,
-                            dcgm_fields.DCGM_FI_PROF_SM_ACTIVE,
-                            dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY,
-                            dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE,
-                            dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE,
-                            dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE,
-                            dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE,
-                            dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE,
-                            dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES,
-                            dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES,
-                            dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES,
-                            dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES,
-                        ])
+                    self.fieldIds_dict = {
+                        dcgm_fields.DCGM_FI_DEV_NAME: 'name',
+                        dcgm_fields.DCGM_FI_DEV_UUID: 'uuid',
+                        dcgm_fields.DCGM_FI_DEV_CUDA_VISIBLE_DEVICES_STR: 'cuda_visible_devices_str',
+                        dcgm_fields.DCGM_FI_DEV_POWER_USAGE: 'power_usage',
+                        dcgm_fields.DCGM_FI_DEV_FB_USED: 'fb_used',
+                        dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE: 'fp64_active',
+                        dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE: 'fp32_active',
+                        dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE: 'fp16_active',
+                        dcgm_fields.DCGM_FI_PROF_SM_ACTIVE: 'sm_active',
+                        dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY: 'sm_occupancy',
+                        dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE: 'tensor_active',
+                        dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE: 'dram_active',
+                        dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES: 'pcie_tx_bytes',
+                        dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES: 'pcie_rx_bytes',
+                        dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES: 'nvlink_tx_bytes',
+                        dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES: 'nvlink_rx_bytes',
+                    }
+
+                    self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.fieldIds_dict.keys()))
+                    self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 0)
+                    self.handle.GetSystem().UpdateAllFields(True)
+
                     print('Monitoring GPUs with DCGM with an update interval of {} seconds'.format(dcgm_update_interval))
                     self.MONITOR_DCGM = True
                     self.MONITOR_PYNVML = False
@@ -137,6 +174,17 @@ class SlurmJobCollector(object):
                 self.MONITOR_PYNVML = False
             except pynvml.NVMLError_DriverNotLoaded:
                 self.MONITOR_PYNVML = False
+
+    def GetLatestGpuValuesAsDict(self):
+        gpus = {}
+        data = self.group.samples.GetLatest_v2(self.field_group).values
+        for k in data.keys():
+            for v in data[k].keys():
+                data_dict = {}
+                for metric_id in data[k][v].keys():
+                    data_dict[self.fieldIds_dict[metric_id]] = data[k][v][metric_id].values[0].value
+                gpus[data_dict['uuid']] = data_dict
+        return gpus
 
     def collect(self):
         """
@@ -255,6 +303,9 @@ per elapsed cycle)',
                 # Job is alive, we can get the stats
                 user = get_username(uid)
                 gpu_set = set()
+                if self.MONITOR_PYNVML or self.MONITOR_DCGM:
+                    gpu_set.update(cgroup_gpus(uid, job))
+
                 for proc in procs:
                     try:
                         envs = get_env(proc)
@@ -263,17 +314,6 @@ per elapsed cycle)',
                         continue
                     if 'SLURM_JOB_ACCOUNT' in envs:
                         account = envs['SLURM_JOB_ACCOUNT']
-
-                        if self.MONITOR_PYNVML or self.MONITOR_DCGM:
-                            if 'SLURM_JOB_GPUS' in envs:
-                                gpus = envs['SLURM_JOB_GPUS'].split(',')
-                            elif 'SLURM_STEP_GPUS' in envs:
-                                gpus = envs['SLURM_STEP_GPUS'].split(',')
-                            else:
-                                # Running a CPU job on a GPU node
-                                gpus = []
-                            for gpu in gpus:
-                                gpu_set.add(int(gpu))
                         break
                 else:
                     # Could not find the env variables, slurm_adopt only fill the jobid
@@ -351,6 +391,7 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
 
                 if self.MONITOR_PYNVML:
                     for gpu in gpu_set:
+                        gpu = int(gpu[0])
                         handle = self.pynvml.nvmlDeviceGetHandleByIndex(gpu)
                         name = self.pynvml.nvmlDeviceGetName(handle)
                         if type(name) is str:
@@ -373,52 +414,59 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                             [user, account, job, str(gpu), gpu_type], utils.memory)
 
                 if self.MONITOR_DCGM:
-                    dcgm_data = self.reader.GetLatestGpuValuesAsDict(mapById=False)
-                    for gpu in gpu_set:
-                        gpu_type = dcgm_data[gpu]['name']
+                    dcgm_data = self.GetLatestGpuValuesAsDict()
+                    for gpu_tuple in gpu_set:
+                        if gpu_tuple[0] is None:
+                            # MIG, use the UUID of the GPU
+                            gpu = gpu_tuple[1]
+                        else:
+                            # Full GPU, can be with dcgm or pynvml, use the gpu number
+                            gpu = gpu_tuple[0]
+                        gpu_uuid = gpu_tuple[1]
+                        gpu_type = dcgm_data[gpu_uuid]['name']
                         # Converting DCGM data to the same format as NVML and reusing the same metrics
                         gauge_memory_usage_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            int(dcgm_data[gpu]['fb_used']) * 1024 * 1024)  # convert to bytes
+                            int(dcgm_data[gpu_uuid]['fb_used']) * 1024 * 1024)  # convert to bytes
                         gauge_power_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu]['power_usage'] * 1000)  # convert to mW
+                            dcgm_data[gpu_uuid]['power_usage'] * 1000)  # convert to mW
                         gauge_utilization_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu]['sm_active'] * 100)  # convert to %
+                            dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
                         gauge_memory_utilization_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu]['dram_active'] * 100)  # convert to %
+                            dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
 
                         # Convert to % to keep the same format as NVML
                         gauge_sm_occupancy_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu]['sm_occupancy'] * 100)
+                            dcgm_data[gpu_uuid]['sm_occupancy'] * 100)
                         gauge_tensor_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu]['tensor_active'] * 100)
+                            dcgm_data[gpu_uuid]['tensor_active'] * 100)
                         gauge_fp64_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu]['fp64_active'] * 100)
+                            dcgm_data[gpu_uuid]['fp64_active'] * 100)
                         gauge_fp32_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu]['fp32_active'] * 100)
+                            dcgm_data[gpu_uuid]['fp32_active'] * 100)
                         gauge_fp16_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu]['fp16_active'] * 100)
+                            dcgm_data[gpu_uuid]['fp16_active'] * 100)
 
                         gauge_pcie_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'TX'],
-                            dcgm_data[gpu]['pcie_tx_bytes'])
+                            dcgm_data[gpu_uuid]['pcie_tx_bytes'])
                         gauge_pcie_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'RX'],
-                            dcgm_data[gpu]['pcie_rx_bytes'])
+                            dcgm_data[gpu_uuid]['pcie_rx_bytes'])
                         gauge_nvlink_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'TX'],
-                            dcgm_data[gpu]['nvlink_tx_bytes'])
+                            dcgm_data[gpu_uuid]['nvlink_tx_bytes'])
                         gauge_nvlink_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type, 'RX'],
-                            dcgm_data[gpu]['nvlink_rx_bytes'])
+                            dcgm_data[gpu_uuid]['nvlink_rx_bytes'])
 
         yield gauge_memory_usage
         yield gauge_memory_max
