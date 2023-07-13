@@ -1,15 +1,17 @@
 # Slurm-job-exporter
-Prometheus exporter for the stats in the cgroup accounting with slurm. This will also collect stats of a job using NVIDIA GPUs.
+Prometheus exporter for the stats in the cgroup accounting with Slurm. This will also collect stats of a job using NVIDIA GPUs.
 
 ## Requirements
-Slurm need to be configured with `JobAcctGatherType=jobacct_gather/cgroup`. Stats are collected from the cgroups created by Slurm for each job. 
+Slurm need to be configured with `JobAcctGatherType=jobacct_gather/cgroup`. Stats are collected from the cgroups created by Slurm for each job.
 
 Python 3 with the following modules:
 
 * `prometheus_client`
 * `nvidia-ml-py` (optional)
 
-If DCGM is installed and running, it will be used instead of NVML. DCGM have more GPU stats compared to NVML.
+If DCGM is installed and running, it will be used instead of NVML. DCGM have more GPU stats compared to NVML. MIG devices are supported
+
+`cgexec` is required to run `nvidia-smi -L` in each cgroup to detect which GPU is allocated to a Slurm job.
 
 ## Usage
 ```
