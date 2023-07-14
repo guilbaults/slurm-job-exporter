@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.0.13
+Version:  0.1.0
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -37,6 +37,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Fri Jul 14 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.1.0-1
+- Adding support for MIG devices
 * Tue Apr 11 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.13-1
 - Fixing DCGM bandwidth gauges and adding --dcgm-update-interval parameter
 * Mon Nov 29 2022 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.12-1
