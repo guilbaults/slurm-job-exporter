@@ -4,6 +4,7 @@ import subprocess
 import re
 import sys
 import psutil
+import os
 from functools import lru_cache
 from wsgiref.simple_server import make_server, WSGIRequestHandler
 from prometheus_client.core import GaugeMetricFamily, CounterMetricFamily
@@ -238,6 +239,10 @@ class SlurmJobCollector(object):
             'slurm_job_threads_count', 'Number of threads in a job',
             labels=['user', 'account', 'slurmjobid', 'state'])
 
+        counter_process_usage = CounterMetricFamily(
+            'slurm_job_process_usage', 'Cpu usage of processes within a job',
+            labels=['user', 'account', 'slurmjobid', 'exe'])
+
         if self.MONITOR_PYNVML or self.MONITOR_DCGM:
             # pynvml is used as a fallback for DCGM, both can collect GPU stats
             gauge_memory_usage_gpu = GaugeMetricFamily(
@@ -307,6 +312,7 @@ per elapsed cycle)',
                     gpu_set.update(cgroup_gpus(uid, job))
 
                 for proc in procs:
+                    # get the SLURM_JOB_ACCOUNT
                     try:
                         envs = get_env(proc)
                     except ValueError:
@@ -360,9 +366,9 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                 for proc in procs:
                     try:
                         p = psutil.Process(proc)
+                        cmdline = p.cmdline()
                     except psutil.NoSuchProcess:
                         continue
-                    cmdline = p.cmdline()
                     if len(cmdline) == 0:
                         # sometimes the cmdline is empty, we don't want to count it
                         continue
@@ -388,6 +394,34 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                 for status in tasks_state.keys():
                     gauge_threads_count.add_metric([user, account, job, status], tasks_state[status])
                 gauge_process_count.add_metric([user, account, job], processes)
+
+                processes_sum = {}
+                for proc in procs:
+                    # get the counter_process_usage data
+                    try:
+                        p = psutil.Process(proc)
+                        with p.oneshot():
+                            exe = p.exe()
+                        if os.path.basename(exe) in ['ssh', 'sshd', 'bash', 'srun']:
+                            # We don't want to count them
+                            continue
+                        else:
+                            t = p.cpu_times().user + p.cpu_times().system + p.cpu_times().children_user + p.cpu_times().children_system
+                            if exe in processes_sum:
+                                processes_sum[exe] += t
+                            else:
+                                processes_sum[exe] = t
+                    except psutil.NoSuchProcess:
+                        continue
+
+                # we only count the processes that used more than 60 seconds of CPU
+                processes_sum_filtered = processes_sum.copy()
+                for exe in processes_sum.keys():
+                    if processes_sum[exe] < 60:
+                        del processes_sum_filtered[exe]
+
+                for exe in processes_sum_filtered.keys():
+                    counter_process_usage.add_metric([user, account, job, exe], processes_sum_filtered[exe])
 
                 if self.MONITOR_PYNVML:
                     for gpu in gpu_set:
@@ -481,6 +515,7 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
         yield counter_core_usage
         yield gauge_process_count
         yield gauge_threads_count
+        yield counter_process_usage
 
         if self.MONITOR_PYNVML or self.MONITOR_DCGM:
             yield gauge_memory_usage_gpu
