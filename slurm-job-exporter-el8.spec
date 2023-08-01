@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.1.0
+Version:  0.2.0
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -37,6 +37,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Tue Aug  1 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.2.0-1
+- Adding counter_process_usage to measure and name the processes inside the cgroups
 * Fri Jul 14 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.1.0-1
 - Adding support for MIG devices
 * Tue Apr 11 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.0.13-1
