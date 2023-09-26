@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.2.0
+Version:  0.3.0
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -11,7 +11,6 @@ BuildArch:      noarch
 BuildRequires:	systemd
 Requires:       python3
 Requires:       python36-psutil
-Requires:       libcgroup-tools
 
 %description
 Prometheus exporter for the stats in the cgroup accounting with slurm. This will also collect stats of a job using NVIDIA GPUs.
@@ -27,6 +26,7 @@ mkdir -p %{buildroot}/%{_unitdir}
 
 sed -i -e '1i#!/usr/bin/python3' slurm-job-exporter.py
 install -m 0755 %{name}.py %{buildroot}/%{_bindir}/%{name}
+install -m 0744 get_gpus.sh %{buildroot}/%{_bindir}/get_gpus.sh
 install -m 0644 slurm-job-exporter.service %{buildroot}/%{_unitdir}/slurm-job-exporter.service
 
 %clean
@@ -34,9 +34,12 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %{_bindir}/%{name}
+%{_bindir}/get_gpus.sh
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Tue Sep 25 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.3.0-1
+- Removing the dependency on cgexec
 * Tue Aug  1 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.2.0-1
 - Adding counter_process_usage to measure and name the processes inside the cgroups
 * Fri Jul 14 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.1.0-1

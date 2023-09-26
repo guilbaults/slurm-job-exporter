@@ -1,4 +1,4 @@
-name: RPM Build rocky8
+name: RPM Build rocky9
 on:
     push:
       # Sequence of patterns matched against refs/tags
@@ -12,11 +12,11 @@ jobs:
     - uses: actions/checkout@v2
 
     - name: Package RPM and SRPM
-      uses: xmidt-org/rpm-package-action@v1
+      uses: guilbaults/rpm-package-action@centos
       with:
         path: .
-        spec: slurm-job-exporter-el8.spec
-        distro: rocky-8
+        spec: slurm-job-exporter-el9.spec
+        distro: rocky-9
 
     - name: Release
       uses: softprops/action-gh-release@v1
