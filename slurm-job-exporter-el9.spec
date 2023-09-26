@@ -26,7 +26,7 @@ mkdir -p %{buildroot}/%{_unitdir}
 
 sed -i -e '1i#!/usr/bin/python3' slurm-job-exporter.py
 install -m 0755 %{name}.py %{buildroot}/%{_bindir}/%{name}
-install -m 0744 fake_cgexec.sh %{buildroot}/%{_bindir}/fake_cgexec.sh
+install -m 0744 get_gpus.sh %{buildroot}/%{_bindir}/get_gpus.sh
 install -m 0644 slurm-job-exporter.service %{buildroot}/%{_unitdir}/slurm-job-exporter.service
 
 %clean
@@ -34,7 +34,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %{_bindir}/%{name}
-%{_bindir}/fake_cgexec.sh
+%{_bindir}/get_gpus.sh
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog

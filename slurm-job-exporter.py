@@ -80,7 +80,7 @@ def get_env(pid):
 
 def cgroup_gpus(uid, job):
     try:
-        command = ["fake_cgexec.sh", uid, job]
+        command = ["get_gpus.sh", uid, job]
         res = subprocess.check_output(command).strip().decode()
     except FileNotFoundError:
         # This is most likely because cgexec or nvidia-smi are not on the machine
