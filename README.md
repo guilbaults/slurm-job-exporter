@@ -11,7 +11,7 @@ Python 3 with the following modules:
 
 If DCGM is installed and running, it will be used instead of NVML. DCGM have more GPU stats compared to NVML. MIG devices are supported
 
-`cgexec` is required to run `nvidia-smi -L` in each cgroup to detect which GPU is allocated to a Slurm job.
+`nvidia-smi -L` is run in each cgroup to detect which GPU is allocated to a Slurm job.
 
 ## Usage
 ```
