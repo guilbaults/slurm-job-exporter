@@ -151,6 +151,16 @@ class SlurmJobCollector(object):
                         dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES: 'nvlink_rx_bytes',
                     }
 
+                    for gpu_id in pydcgm.DcgmSystemDiscovery(self.handle).GetAllSupportedGpuIds():
+                        device = pydcgm.dcgm_agent.dcgmGetDeviceAttributes(self.handle.handle, gpu_id)
+                        name = device.identifiers.deviceName
+                        print('Detected gpu {} with ID {}'.format(name, gpu_id))
+                        if name in ['Quadro RTX 6000']:
+                            # This GPU does not supports fp64, we don't support a mix of fp64 and non-fp64 GPUs in the same node
+                            print('Removing fp64 metrics since {} does not support fp64'.format(name))
+                            del self.fieldIds_dict[dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE]
+                            break
+
                     self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.fieldIds_dict.keys()))
                     self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 0)
                     self.handle.GetSystem().UpdateAllFields(True)
