@@ -155,7 +155,7 @@ class SlurmJobCollector(object):
                         device = pydcgm.dcgm_agent.dcgmGetDeviceAttributes(self.handle.handle, gpu_id)
                         name = device.identifiers.deviceName
                         print('Detected gpu {} with ID {}'.format(name, gpu_id))
-                        if name in ['Quadro RTX 6000']:
+                        if name in ['NVIDIA RTX A6000']:
                             # This GPU does not supports fp64, we don't support a mix of fp64 and non-fp64 GPUs in the same node
                             print('Removing fp64 metrics since {} does not support fp64'.format(name))
                             del self.fieldIds_dict[dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE]
