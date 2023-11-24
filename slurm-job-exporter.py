@@ -112,6 +112,7 @@ class SlurmJobCollector(object):
         # Will be auto detected by the exporter
         self.MONITOR_DCGM = False
         self.MONITOR_PYNVML = False
+        self.UNSUPPORTED_FEATURES = []
         for proc in psutil.process_iter():
             if proc.name() == 'nv-hostengine':
                 # DCGM is running on this host
@@ -159,6 +160,7 @@ class SlurmJobCollector(object):
                             # This GPU does not supports fp64, we don't support a mix of fp64 and non-fp64 GPUs in the same node
                             print('Removing fp64 metrics since {} does not support fp64'.format(name))
                             del self.fieldIds_dict[dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE]
+                            self.UNSUPPORTED_FEATURES.append('fp64')
                             break
 
                     self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.fieldIds_dict.keys()))
@@ -285,10 +287,11 @@ per elapsed cycle)',
                 'The ratio of cycles the tensor (HMMA) pipe is active \
 (off the peak sustained elapsed cycles)',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_fp64_gpu = GaugeMetricFamily(
-                'slurm_job_fp64_gpu',
-                'Ratio of cycles the fp64 pipe is active',
-                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            if 'fp64' not in self.UNSUPPORTED_FEATURES:
+                gauge_fp64_gpu = GaugeMetricFamily(
+                    'slurm_job_fp64_gpu',
+                    'Ratio of cycles the fp64 pipe is active',
+                    labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
             gauge_fp32_gpu = GaugeMetricFamily(
                 'slurm_job_fp32_gpu',
                 'Ratio of cycles the fp32 pipe is active',
@@ -489,9 +492,10 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                         gauge_tensor_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu_uuid]['tensor_active'] * 100)
-                        gauge_fp64_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['fp64_active'] * 100)
+                        if 'fp64' not in self.UNSUPPORTED_FEATURES:
+                            gauge_fp64_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type],
+                                dcgm_data[gpu_uuid]['fp64_active'] * 100)
                         gauge_fp32_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu_uuid]['fp32_active'] * 100)
@@ -535,7 +539,8 @@ cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
         if self.MONITOR_DCGM:
             yield gauge_sm_occupancy_gpu
             yield gauge_tensor_gpu
-            yield gauge_fp64_gpu
+            if 'fp64' not in self.UNSUPPORTED_FEATURES:
+                yield gauge_fp64_gpu
             yield gauge_fp32_gpu
             yield gauge_fp16_gpu
             yield gauge_pcie_gpu
