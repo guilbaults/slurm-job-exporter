@@ -64,16 +64,11 @@ def get_env(pid):
     """
     Return the environment variables of a process
     """
-    environments = {}
     try:
-        with open('/proc/{}/environ'.format(pid), 'r', encoding='utf-8') as env_f:
-            for env in env_f.read().split('\000'):
-                r_env = re.match(r'(.*)=(.*)', env)
-                if r_env:
-                    environments[r_env.group(1)] = r_env.group(2)
-    except FileNotFoundError:
-        raise ValueError('Process {} environment does not exist'.format(pid))
-    return environments
+        ps = psutil.Proc(pid)
+        return ps.environ()
+    except psutil.NoSuchProcess:
+        raise ValueError("Could not get environment for {}".format(pid))
 
 
 def cgroup_gpus(uid, job):
