@@ -23,27 +23,25 @@ def get_username(uid):
     return subprocess.check_output(command).strip().decode()
 
 
-def cgroup_processes(uid, job):
+def cgroup_processes(job_dir):
     """
-    Find all the PIDs for a cgroup of a user+job
+    Find all the PIDs for a cgroup of a job
     """
     procs = []
-    step_g = '/sys/fs/cgroup/memory/slurm/uid_{}/job_{}/step_*'
-    for step in glob.glob(step_g.format(uid, job)):
-        cgroup = '/sys/fs/cgroup/memory/slurm/uid_{}/job_{}/{}/task_*'.format(
-            uid, job, step.split('/')[-1])
-        for process_file in glob.glob(cgroup):
-            with open(process_file + '/cgroup.procs', 'r') as stats:
-                for proc in stats.readlines():
-                    # check if process is not running as root
-                    # a long sleep running as root can be found in step_extern
-                    try:
-                        ps = psutil.Process(int(proc))
-                        if ps.username() != 'root':
-                            procs.append(int(proc))
-                    except psutil.NoSuchProcess:
-                        pass
-    return procs
+    res_uid = -1
+    for (path, _, _)  in os.walk(job_dir):
+        with open(os.path.join(path, cgroup.procs), 'r') as procs:
+            for proc in procs.readlines():
+                pid = int(proc)
+                try:
+                    ps = psutil.Proc(pid)
+                    uid = ps.uids().real
+                    if uid != 0:
+                        res_uid = uid
+                        procs.append(pid)
+                except psutil.NoSuchProcess:
+                    pass
+    return res_uid, procs
 
 
 def split_range(range_str):
@@ -314,7 +312,7 @@ per elapsed cycle)',
                 job = job_dir.split('/')[-1].split('_')[1]
                 mem_path = '/sys/fs/cgroup/memory/slurm/uid_{}/job_{}/'.format(
                     uid, job)
-                procs = cgroup_processes(uid, job)
+                uid, procs = cgroup_processes(job_dir)
                 if len(procs) == 0:
                     continue
 
