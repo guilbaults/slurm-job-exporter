@@ -71,13 +71,25 @@ def get_env(pid):
         raise ValueError("Could not get environment for {}".format(pid))
 
 
-def cgroup_gpus(uid, job):
+def cgroup_gpus(job_dir, cgroup):
+    if cgroup == 1:
+        task_file = os.path.join(job_dir, "tasks")
+    else:
+        cgroup_path = os.path.join(job_dir, "gpu_probe")
+        # This will create a new cgroup under the root of the job.
+        # This is required for v2 since we can only add tasks to leaf cgroups
+        os.mkdir(cgroup_path)
+        task_file = os.path.join(cgroup_path, "cgroup.procs")
     try:
-        command = ["get_gpus.sh", uid, job]
-        res = subprocess.check_output(command).strip().decode()
+        res = subprocess.check_output(["get_gpus.sh", task_file]).strip().decode()
     except FileNotFoundError:
-        # This is most likely because cgexec or nvidia-smi are not on the machine
+        # This is most likely because nvidia-smi is not on the machine
         return []
+    finally:
+        if cgroup == 2:
+            # We can remove a cgroup if no tasks are remaining inside
+            os.rmdir(cgroup_path)
+
     gpus = []
 
     mig = 'MIG' in res
@@ -319,7 +331,11 @@ per elapsed cycle)',
             user = get_username(uid)
             gpu_set = set()
             if self.MONITOR_PYNVML or self.MONITOR_DCGM:
-                gpu_set.update(cgroup_gpus(uid, job))
+                if cgroups == 1:
+                    gpu_dir = "/sys/fs/cgroup/devices/slurm/uid_{}/job_{}".format(uid, job)
+                else:
+                    gpu_dir = job_dir
+                gpu_set.update(cgroup_gpus(gpu_dir, cgroup))
 
             for proc in procs:
                 # get the SLURM_JOB_ACCOUNT
