@@ -30,8 +30,8 @@ def cgroup_processes(job_dir):
     procs = []
     res_uid = -1
     for (path, _, _)  in os.walk(job_dir):
-        with open(os.path.join(path, "cgroup.procs"), 'r') as procs:
-            for proc in procs.readlines():
+        with open(os.path.join(path, "cgroup.procs"), 'r') as fprocs:
+            for proc in fprocs.readlines():
                 pid = int(proc)
                 try:
                     ps = psutil.Process(pid)
