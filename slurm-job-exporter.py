@@ -71,8 +71,8 @@ def get_env(pid):
         raise ValueError("Could not get environment for {}".format(pid))
 
 
-def cgroup_gpus(job_dir, cgroup):
-    if cgroup == 1:
+def cgroup_gpus(job_dir, cgroups):
+    if cgroups == 1:
         task_file = os.path.join(job_dir, "tasks")
     else:
         cgroup_path = os.path.join(job_dir, "gpu_probe")
@@ -86,7 +86,7 @@ def cgroup_gpus(job_dir, cgroup):
         # This is most likely because nvidia-smi is not on the machine
         return []
     finally:
-        if cgroup == 2:
+        if cgroups == 2:
             # We can remove a cgroup if no tasks are remaining inside
             os.rmdir(cgroup_path)
 
@@ -335,7 +335,7 @@ per elapsed cycle)',
                     gpu_dir = "/sys/fs/cgroup/devices/slurm/uid_{}/job_{}".format(uid, job)
                 else:
                     gpu_dir = job_dir
-                gpu_set.update(cgroup_gpus(gpu_dir, cgroup))
+                gpu_set.update(cgroup_gpus(gpu_dir, cgroups))
 
             for proc in procs:
                 # get the SLURM_JOB_ACCOUNT
@@ -365,7 +365,7 @@ per elapsed cycle)',
 
             with open(job_dir + 'memory.stat', 'r') as f_stats:
                 stats = dict(line.split() for line in f_stats.readlines())
-            if cgroup == 1:
+            if cgroups == 1:
                 gauge_memory_cache.add_metric(
                     [user, account, job], int(stats['total_cache']))
                 gauge_memory_rss.add_metric(
@@ -399,7 +399,7 @@ per elapsed cycle)',
                     [user, account, job], int(stats['unevictable']))
 
             # get the allocated cores
-            if cgroup == 1:
+            if cgroups == 1:
                 cpuset_path = '/sys/fs/cgroup/cpuset/slurm/uid_{}/job_{}/cpuset.effective_cpus'.format(uid, job)
             else:
                 cpuset_path = os.path.join(job_dir, 'cpuset.cpus.effective')
@@ -407,7 +407,7 @@ per elapsed cycle)',
             with open(cpuset_path, 'r') as f_cores:
                 cores = split_range(f_cores.read())
 
-            if cgroup == 1:
+            if cgroups == 1:
                 # There is no equivalent to this in cgroups v2
                 with open('/sys/fs/cgroup/cpu,cpuacct/slurm/uid_{}/job_{}/cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                     cpu_usages = f_usage.read().split()
