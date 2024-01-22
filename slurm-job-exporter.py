@@ -399,7 +399,7 @@ per elapsed cycle)',
                     [user, account, job], int(stats['unevictable']))
 
             # get the allocated cores
-            if cgroup == 1
+            if cgroup == 1:
                 cpuset_path = '/sys/fs/cgroup/cpuset/slurm/uid_{}/job_{}/cpuset.effective_cpus'.format(uid, job)
             else:
                 cpuset_path = os.path.join(job_dir, 'cpuset.cpus.effective')
