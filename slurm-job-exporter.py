@@ -29,7 +29,7 @@ def cgroup_processes(job_dir):
     """
     procs = []
     res_uid = -1
-    for (path, _, _)  in os.walk(job_dir):
+    for (path, _, _) in os.walk(job_dir):
         with open(os.path.join(path, "cgroup.procs"), 'r') as fprocs:
             for proc in fprocs.readlines():
                 pid = int(proc)
@@ -413,7 +413,7 @@ per elapsed cycle)',
                     cpu_usages = f_usage.read().split()
                     for core in cores:
                         counter_core_usage.add_metric([user, account, job, str(core)],
-                                                    int(cpu_usages[core]))
+                                                      int(cpu_usages[core]))
 
             processes = 0
             tasks_state = {}
