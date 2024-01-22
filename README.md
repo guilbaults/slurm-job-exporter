@@ -24,6 +24,12 @@ optional arguments:
   --port PORT  Collector http port, default is 9798
 ``` 
 
+## Cgroup v1 vs v2
+[Slurm currently supports cgroup v1 and v2](https://slurm.schedmd.com/cgroup_v2.html), but there are some limitations with v2, some metrics are not currently available on this exporter:
+
+* `memory.max_usage_in_bytes` becomes `memory.peak`, but this is not in any currently released kernel ([torvalds/linux@8e20d4b](https://github.com/torvalds/linux/commit/8e20d4b332660a32e842e20c34cfc3b3456bc6dc))
+* `cpuacct.usage_percpu` is exposed via eBPF in kernel 6.6+, but not through cgroupfs although it might be for a future kernel.
+
 ## Sample
 ```
 # HELP slurm_job_memory_usage Memory used by a job
