@@ -351,19 +351,19 @@ per elapsed cycle)',
                 # Could not find the env variables, slurm_adopt only fill the jobid
                 account = "error"
 
-            with open(job_dir + ('memory.usage_in_bytes' if cgroups == 1 else 'memory.current'), 'r') as f_usage:
+            with open(os.path.join(job_dir, ('memory.usage_in_bytes' if cgroups == 1 else 'memory.current')), 'r') as f_usage:
                 gauge_memory_usage.add_metric([user, account, job], int(f_usage.read()))
             try:
-                with open(job_dir + ('memory.max_usage_in_bytes' if cgroups == 1 else 'memory.peak'), 'r') as f_max:
+                with open(os.path.join(job_dir, ('memory.max_usage_in_bytes' if cgroups == 1 else 'memory.peak')), 'r') as f_max:
                     gauge_memory_max.add_metric([user, account, job], int(f_max.read()))
             except FileNotFoundError:
                 # 'memory.peak' is only available in kernel 6.8+
                 pass
 
-            with open(job_dir + ('memory.limit_in_bytes' if cgroups == 1 else 'memory.max'), 'r') as f_limit:
+            with open(os.path.join(job_dir, ('memory.limit_in_bytes' if cgroups == 1 else 'memory.max')), 'r') as f_limit:
                 gauge_memory_limit.add_metric([user, account, job], int(f_limit.read()))
 
-            with open(job_dir + 'memory.stat', 'r') as f_stats:
+            with open(os.path.join(job_dir, 'memory.stat'), 'r') as f_stats:
                 stats = dict(line.split() for line in f_stats.readlines())
             if cgroups == 1:
                 gauge_memory_cache.add_metric(
