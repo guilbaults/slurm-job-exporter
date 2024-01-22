@@ -34,7 +34,7 @@ def cgroup_processes(job_dir):
             for proc in procs.readlines():
                 pid = int(proc)
                 try:
-                    ps = psutil.Proc(pid)
+                    ps = psutil.Process(pid)
                     uid = ps.uids().real
                     if uid != 0:
                         res_uid = uid
@@ -65,7 +65,7 @@ def get_env(pid):
     Return the environment variables of a process
     """
     try:
-        ps = psutil.Proc(pid)
+        ps = psutil.Process(pid)
         return ps.environ()
     except psutil.NoSuchProcess:
         raise ValueError("Could not get environment for {}".format(pid))
