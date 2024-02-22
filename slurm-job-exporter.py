@@ -95,9 +95,9 @@ def cgroup_gpus(job_dir, cgroups):
     mig = 'MIG' in res
     for line in res.split('\n'):
         m = GPU_UUID_RE.search(line)
-        if mig and m.group(1) == 'MIG':
+        if mig and m and m.group(1) == 'MIG':
             gpus.append((None, m.group()))
-        elif not mig and m.group(1) == 'GPU':
+        elif not mig and m and m.group(1) == 'GPU':
             gpu = str(line.split()[1].rstrip(':'))
             gpus.append((gpu, m.group()))
     return gpus
