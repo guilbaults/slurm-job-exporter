@@ -1,6 +1,8 @@
 [Unit]
 Description=Slurm-job-exporter
 After=network.target
+After=nvidia-dcgm.service
+Wants=nvidia-dcgm.service
 
 [Service]
 Type=simple
