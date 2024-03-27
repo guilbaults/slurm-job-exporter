@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.4.0
+Version:  0.4.1
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -38,6 +38,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Wed Mar 27 2024 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.1-1
+- Handle when no GPU are allocated in a job and improve systemd service
 * Mon Jan 22 2024 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.0-1
 - Adding support for cgroup v2
 * Fri Nov 24 2023 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.3.2-1
