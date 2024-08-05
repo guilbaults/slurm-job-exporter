@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.4.2
+Version:  0.4.3
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -38,6 +38,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Mon Aug 05 2024 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.3-1
+- Adding support for L40s that lack FP64
 * Wed Apr 17 2024 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.2-1
 - Adding support for L4 that lack FP64
 * Wed Mar 27 2024 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.1-1
