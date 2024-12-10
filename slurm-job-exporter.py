@@ -105,12 +105,12 @@ def cgroup_gpus(job_dir, cgroups):
 def find_host_directories(base_path="/sys/fs/cgroup/system.slice"):
     try:
         # Pattern to match directories
-        pattern1 = os.path.join(base_path, "host*_slurmstepd.scope")
+        pattern1 = os.path.join(base_path, "*_slurmstepd.scope")
 
         # Find directories matching the patterns
         directories = glob.glob(pattern1)
 
-        return str(directories[0])
+        return directories
     except Exception as e:
         return f"Error: {e}"
 
@@ -338,6 +338,7 @@ per elapsed cycle)',
                 jobs_glob = "/sys/fs/cgroup/system.slice/*_slurmstepd.scope/job_*"
             else:
                 jobs_glob = "/sys/fs/cgroup/system.slice/slurmstepd.scope/job_*"
+
         for job_dir in glob.glob(jobs_glob):
             job = job_dir.split('/')[-1].split('_')[1]
             uid, procs = cgroup_processes(job_dir)
