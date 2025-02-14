@@ -167,7 +167,7 @@ class SlurmJobCollector(object):
                     try:
                         # try watching with lp64 features
                         self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 0)
-                    except:
+                    except dcgm_structs.DCGMError_NotSupported:
                         # slightly kludgy: recreate group - without fp64
                         self.field_group.Delete()
                         del self.fieldIds_dict[dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE]
