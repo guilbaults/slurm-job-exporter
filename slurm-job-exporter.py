@@ -161,15 +161,24 @@ class SlurmJobCollector(object):
                         device = pydcgm.dcgm_agent.dcgmGetDeviceAttributes(self.handle.handle, gpu_id)
                         name = device.identifiers.deviceName
                         print('Detected gpu {} with ID {}'.format(name, gpu_id))
-                        if name in ['NVIDIA RTX A6000', 'NVIDIA L4', 'NVIDIA L40S']:
-                            # This GPU does not supports fp64, we don't support a mix of fp64 and non-fp64 GPUs in the same node
-                            print('Removing fp64 metrics since {} does not support fp64'.format(name))
-                            del self.fieldIds_dict[dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE]
-                            self.UNSUPPORTED_FEATURES.append('fp64')
-                            break
 
                     self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.fieldIds_dict.keys()))
-                    self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 0)
+
+                    try:
+                        # try watching with lp64 features
+                        self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 0)
+                    except dcgm_structs.DCGMError_NotSupported:
+                        # slightly kludgy: recreate group - without fp64
+                        self.field_group.Delete()
+                        del self.fieldIds_dict[dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE]
+                        self.UNSUPPORTED_FEATURES.append('fp64')
+                        self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.fieldIds_dict.keys()))
+
+                        # try watching without lp64 features
+                        self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 0)
+
+                        print('Disabled fp64 metrics as an installed gpu does not support it')
+
                     self.handle.GetSystem().UpdateAllFields(True)
 
                     print('Monitoring GPUs with DCGM with an update interval of {} seconds'.format(dcgm_update_interval))
