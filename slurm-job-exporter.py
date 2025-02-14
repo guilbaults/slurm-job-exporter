@@ -166,7 +166,7 @@ class SlurmJobCollector(object):
 
                     try:
                         # try watching with lp64 features
-                        self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 0)
+                        self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
                     except dcgm_structs.DCGMError_NotSupported:
                         # slightly kludgy: recreate group - without fp64
                         self.field_group.Delete()
@@ -175,7 +175,7 @@ class SlurmJobCollector(object):
                         self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.fieldIds_dict.keys()))
 
                         # try watching without lp64 features
-                        self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 0)
+                        self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
 
                         print('Disabled fp64 metrics as an installed gpu does not support it')
 
