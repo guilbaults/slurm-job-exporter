@@ -9,7 +9,12 @@ Python 3 with the following modules:
 * `prometheus_client`
 * `nvidia-ml-py` (optional)
 
-If DCGM is installed and running, it will be used instead of NVML. DCGM have more GPU stats compared to NVML. MIG devices are supported
+DCGM is recommended when NVIDIA GPUs are installed:
+
+* If DCGM is installed and running, it will be used instead of NVML.
+* NVLINK and and a few other stats are only available with DCGM.
+* MIG devices are supported.
+* Only DCGM < 4.0.0 is supported at this moment.
 
 `nvidia-smi -L` is run in each cgroup to detect which GPU is allocated to a Slurm job.
 

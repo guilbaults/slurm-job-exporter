@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.4.4
+Version:  0.4.5
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -38,6 +38,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Wed Feb 19 2025 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.5-1
+- Adding autodetect for devices without FP64 and adding support for H100
 * Mon Aug 05 2024 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.4-1
 - Removing support for EL7
 * Mon Aug 05 2024 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.3-1
