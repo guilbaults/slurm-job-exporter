@@ -109,17 +109,18 @@ class SlurmJobCollector(object):
     running slurm jobs on a node. This is using the stats from the cgroups
     created by Slurm.
     """
-    def __init__(self, dcgm_update_interval=10):
+    def __init__(self, dcgm_update_interval=10, monitor='dcgm'):
         """
         Args:
             dcgm_update_interval (int, optional): Pooling interval in seconds used by DCGM. Defaults to 10.
+            monitor (str, optional): Choose dcgm or nvml data collection. Defaults to dcgm.
         """
         # Will be auto detected by the exporter
         self.MONITOR_DCGM = False
         self.MONITOR_PYNVML = False
         self.UNSUPPORTED_FEATURES = []
         for proc in psutil.process_iter():
-            if proc.name() == 'nv-hostengine':
+            if monitor == 'dcgm' and proc.name() == 'nv-hostengine':
                 # DCGM is running on this host
                 # Load DCGM bindings from the RPM
                 sys.path.insert(0, '/usr/local/dcgm/bindings/python3/')
@@ -188,9 +189,13 @@ class SlurmJobCollector(object):
                     self.MONITOR_DCGM = False
 
         # using nvml as a fallback for DCGM
-        if self.MONITOR_DCGM is False:
+        if monitor == 'nvml' or self.MONITOR_DCGM is False:
             try:
-                import pynvml
+                try:
+                    import pynvml
+                except ImportError:
+                    import py3nvml.py3nvml as pynvml
+
                 pynvml.nvmlInit()
                 self.MONITOR_PYNVML = True
                 print('Monitoring GPUs with pynvml')
@@ -615,13 +620,18 @@ within a cgroup')
         default=9798,
         help='Collector http port, default is 9798')
     PARSER.add_argument(
+        '--monitor',
+        type=str,
+        default='dcgm',
+        help='GPU data monitor [dcgm|nvml], default is dcgm')
+    PARSER.add_argument(
         '--dcgm-update-interval',
         type=int,
         default=10,
         help='DCGM update interval in seconds, default is 10')
     ARGS = PARSER.parse_args()
 
-    APP = make_wsgi_app(SlurmJobCollector(dcgm_update_interval=ARGS.dcgm_update_interval))
+    APP = make_wsgi_app(SlurmJobCollector(dcgm_update_interval=ARGS.dcgm_update_interval, monitor=ARGS.monitor))
     HTTPD = make_server('', ARGS.port, APP,
                         handler_class=NoLoggingWSGIRequestHandler)
     HTTPD.serve_forever()
