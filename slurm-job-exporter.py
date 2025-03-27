@@ -143,6 +143,7 @@ class SlurmJobCollector(object):
                         dcgm_fields.DCGM_FI_DEV_UUID: 'uuid',
                         dcgm_fields.DCGM_FI_DEV_CUDA_VISIBLE_DEVICES_STR: 'cuda_visible_devices_str',
                         dcgm_fields.DCGM_FI_DEV_POWER_USAGE: 'power_usage',
+                        dcgm_fields.DCGM_FI_DEV_FB_TOTAL: 'fb_total',
                         dcgm_fields.DCGM_FI_DEV_FB_USED: 'fb_used',
                         dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE: 'fp64_active',
                         dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE: 'fp32_active',
@@ -271,6 +272,9 @@ class SlurmJobCollector(object):
 
         if self.MONITOR_PYNVML or self.MONITOR_DCGM:
             # pynvml is used as a fallback for DCGM, both can collect GPU stats
+            gauge_memory_total_gpu = GaugeMetricFamily(
+                'slurm_job_memory_total_gpu', 'Memory available on a GPU',
+                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
             gauge_memory_usage_gpu = GaugeMetricFamily(
                 'slurm_job_memory_usage_gpu', 'Memory used by a job on a GPU',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
@@ -495,6 +499,9 @@ per elapsed cycle)',
                             gpu_type = self.pynvml.nvmlDeviceGetName(handle)
                         else:
                             gpu_type = self.pynvml.nvmlDeviceGetName(handle).decode()
+                        gauge_memory_total_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            int(self.pynvml.nvmlDeviceGetMemoryInfo(handle).total))
                         gauge_memory_usage_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             int(self.pynvml.nvmlDeviceGetMemoryInfo(handle).used))
@@ -522,6 +529,9 @@ per elapsed cycle)',
                         gpu_uuid = gpu_tuple[1]
                         gpu_type = dcgm_data[gpu_uuid]['name']
                         # Converting DCGM data to the same format as NVML and reusing the same metrics
+                        gauge_memory_total_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            int(dcgm_data[gpu_uuid]['fb_total']) * 1024 * 1024)  # convert to bytes
                         gauge_memory_usage_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             int(dcgm_data[gpu_uuid]['fb_used']) * 1024 * 1024)  # convert to bytes
@@ -582,6 +592,7 @@ per elapsed cycle)',
         yield counter_process_usage
 
         if self.MONITOR_PYNVML or self.MONITOR_DCGM:
+            yield gauge_memory_total_gpu
             yield gauge_memory_usage_gpu
             yield gauge_power_gpu
             yield gauge_utilization_gpu
