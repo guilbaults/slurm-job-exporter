@@ -83,7 +83,7 @@ def cgroup_gpus(job_dir, cgroups):
     try:
         res = subprocess.check_output(["get_gpus.sh", task_file]).strip().decode()
     except FileNotFoundError:
-        # This is most likely because nvidia-smi is not on the machine
+        print('get_gpus.sh not found')
         return []
     finally:
         if cgroups == 2:
