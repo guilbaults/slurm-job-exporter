@@ -190,7 +190,11 @@ class SlurmJobCollector(object):
         # using nvml as a fallback for DCGM
         if self.MONITOR_DCGM is False:
             try:
-                import pynvml
+                try:
+                   import pynvml
+                except:
+                   import py3nvml.py3nvml as pynvml
+
                 pynvml.nvmlInit()
                 self.MONITOR_PYNVML = True
                 print('Monitoring GPUs with pynvml')
