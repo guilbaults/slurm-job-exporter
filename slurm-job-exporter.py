@@ -192,9 +192,9 @@ class SlurmJobCollector(object):
         if monitor == 'nvml' or self.MONITOR_DCGM is False:
             try:
                 try:
-                   import pynvml
-                except:
-                   import py3nvml.py3nvml as pynvml
+                    import pynvml
+                except ImportError:
+                    import py3nvml.py3nvml as pynvml
 
                 pynvml.nvmlInit()
                 self.MONITOR_PYNVML = True
