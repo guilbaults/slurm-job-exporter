@@ -495,91 +495,91 @@ per elapsed cycle)',
             for exe in processes_sum_filtered.keys():
                 counter_process_usage.add_metric([user, account, job, exe], processes_sum_filtered[exe])
 
-                if self.MONITOR_PYNVML:
-                    for gpu in gpu_set:
-                        gpu = int(gpu[0])
-                        handle = self.pynvml.nvmlDeviceGetHandleByIndex(gpu)
-                        name = self.pynvml.nvmlDeviceGetName(handle)
-                        if type(name) is str:
-                            gpu_type = self.pynvml.nvmlDeviceGetName(handle)
-                        else:
-                            gpu_type = self.pynvml.nvmlDeviceGetName(handle).decode()
-                        gauge_memory_total_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            int(self.pynvml.nvmlDeviceGetMemoryInfo(handle).total))
-                        gauge_memory_usage_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            int(self.pynvml.nvmlDeviceGetMemoryInfo(handle).used))
-                        try:
-                            gauge_power_gpu.add_metric(
-                                [user, account, job, str(gpu), gpu_type],
-                                self.pynvml.nvmlDeviceGetPowerUsage(handle))
-                        except self.pynvml.NVMLError_NotSupported:
-                            pass
-                        utils = self.pynvml.nvmlDeviceGetUtilizationRates(handle)
-                        gauge_utilization_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type], utils.gpu)
-                        gauge_memory_utilization_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type], utils.memory)
-
-                if self.MONITOR_DCGM:
-                    dcgm_data = self.GetLatestGpuValuesAsDict()
-                    for gpu_tuple in gpu_set:
-                        if gpu_tuple[0] is None:
-                            # MIG, use the UUID of the GPU
-                            gpu = gpu_tuple[1]
-                        else:
-                            # Full GPU, can be with dcgm or pynvml, use the gpu number
-                            gpu = gpu_tuple[0]
-                        gpu_uuid = gpu_tuple[1]
-                        gpu_type = dcgm_data[gpu_uuid]['name']
-                        # Converting DCGM data to the same format as NVML and reusing the same metrics
-                        gauge_memory_total_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            int(dcgm_data[gpu_uuid]['fb_total']) * 1024 * 1024)  # convert to bytes
-                        gauge_memory_usage_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            int(dcgm_data[gpu_uuid]['fb_used']) * 1024 * 1024)  # convert to bytes
+            if self.MONITOR_PYNVML:
+                for gpu in gpu_set:
+                    gpu = int(gpu[0])
+                    handle = self.pynvml.nvmlDeviceGetHandleByIndex(gpu)
+                    name = self.pynvml.nvmlDeviceGetName(handle)
+                    if type(name) is str:
+                        gpu_type = self.pynvml.nvmlDeviceGetName(handle)
+                    else:
+                        gpu_type = self.pynvml.nvmlDeviceGetName(handle).decode()
+                    gauge_memory_total_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        int(self.pynvml.nvmlDeviceGetMemoryInfo(handle).total))
+                    gauge_memory_usage_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        int(self.pynvml.nvmlDeviceGetMemoryInfo(handle).used))
+                    try:
                         gauge_power_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['power_usage'] * 1000)  # convert to mW
-                        gauge_utilization_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
-                        gauge_memory_utilization_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
+                            self.pynvml.nvmlDeviceGetPowerUsage(handle))
+                    except self.pynvml.NVMLError_NotSupported:
+                        pass
+                    utils = self.pynvml.nvmlDeviceGetUtilizationRates(handle)
+                    gauge_utilization_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type], utils.gpu)
+                    gauge_memory_utilization_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type], utils.memory)
 
-                        # Convert to % to keep the same format as NVML
-                        gauge_sm_occupancy_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['sm_occupancy'] * 100)
-                        gauge_tensor_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['tensor_active'] * 100)
-                        if 'fp64' not in self.UNSUPPORTED_FEATURES:
-                            gauge_fp64_gpu.add_metric(
-                                [user, account, job, str(gpu), gpu_type],
-                                dcgm_data[gpu_uuid]['fp64_active'] * 100)
-                        gauge_fp32_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['fp32_active'] * 100)
-                        gauge_fp16_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['fp16_active'] * 100)
+            if self.MONITOR_DCGM:
+                dcgm_data = self.GetLatestGpuValuesAsDict()
+                for gpu_tuple in gpu_set:
+                    if gpu_tuple[0] is None:
+                        # MIG, use the UUID of the GPU
+                        gpu = gpu_tuple[1]
+                    else:
+                        # Full GPU, can be with dcgm or pynvml, use the gpu number
+                        gpu = gpu_tuple[0]
+                    gpu_uuid = gpu_tuple[1]
+                    gpu_type = dcgm_data[gpu_uuid]['name']
+                    # Converting DCGM data to the same format as NVML and reusing the same metrics
+                    gauge_memory_total_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        int(dcgm_data[gpu_uuid]['fb_total']) * 1024 * 1024)  # convert to bytes
+                    gauge_memory_usage_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        int(dcgm_data[gpu_uuid]['fb_used']) * 1024 * 1024)  # convert to bytes
+                    gauge_power_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        dcgm_data[gpu_uuid]['power_usage'] * 1000)  # convert to mW
+                    gauge_utilization_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
+                    gauge_memory_utilization_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
 
-                        gauge_pcie_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type, 'TX'],
-                            dcgm_data[gpu_uuid]['pcie_tx_bytes'])
-                        gauge_pcie_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type, 'RX'],
-                            dcgm_data[gpu_uuid]['pcie_rx_bytes'])
-                        gauge_nvlink_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type, 'TX'],
-                            dcgm_data[gpu_uuid]['nvlink_tx_bytes'])
-                        gauge_nvlink_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type, 'RX'],
-                            dcgm_data[gpu_uuid]['nvlink_rx_bytes'])
+                    # Convert to % to keep the same format as NVML
+                    gauge_sm_occupancy_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        dcgm_data[gpu_uuid]['sm_occupancy'] * 100)
+                    gauge_tensor_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        dcgm_data[gpu_uuid]['tensor_active'] * 100)
+                    if 'fp64' not in self.UNSUPPORTED_FEATURES:
+                        gauge_fp64_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu_uuid]['fp64_active'] * 100)
+                    gauge_fp32_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        dcgm_data[gpu_uuid]['fp32_active'] * 100)
+                    gauge_fp16_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type],
+                        dcgm_data[gpu_uuid]['fp16_active'] * 100)
+
+                    gauge_pcie_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type, 'TX'],
+                        dcgm_data[gpu_uuid]['pcie_tx_bytes'])
+                    gauge_pcie_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type, 'RX'],
+                        dcgm_data[gpu_uuid]['pcie_rx_bytes'])
+                    gauge_nvlink_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type, 'TX'],
+                        dcgm_data[gpu_uuid]['nvlink_tx_bytes'])
+                    gauge_nvlink_gpu.add_metric(
+                        [user, account, job, str(gpu), gpu_type, 'RX'],
+                        dcgm_data[gpu_uuid]['nvlink_rx_bytes'])
 
         yield gauge_memory_usage
         yield gauge_memory_max
