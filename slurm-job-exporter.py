@@ -432,6 +432,17 @@ per elapsed cycle)',
                     for core in cores:
                         counter_core_usage.add_metric([user, account, job, str(core)],
                                                       int(cpu_usages[core]))
+            else:
+                # We are running cgroups v2, we can use the cpu.stat file, but we won't get the per-core usage
+                # We will fake the per-core usage by dividing the total usage by the number of cores so we can still count it
+                # eBPF might be used to get the per-core usage in the future
+                with open(os.path.join(job_dir, 'cpu.stat'), 'r') as f_usage:
+                    core_count = len(cores)
+                    cpu_stat = dict(line.split() for line in f_usage.readlines())
+                    fake_usage_per_core = int(cpu_stat['usage_usec']) * 1000 / core_count  # convert to nanoseconds
+                    for core in cores:
+                        counter_core_usage.add_metric([user, account, job, str(core)],
+                                                      fake_usage_per_core)
 
             processes = 0
             tasks_state = {}
