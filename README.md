@@ -38,10 +38,10 @@ optional arguments:
 
 ## Cgroup v1 vs v2
 
-[Slurm currently supports cgroup v1 and v2](https://slurm.schedmd.com/cgroup_v2.html), but there are some limitations with v2, some metrics are not currently available on this exporter:
+[Slurm currently supports cgroup v1 and v2](https://slurm.schedmd.com/cgroup_v2.html), but there are some limitations with v2, some metrics are not currently fully available on this exporter:
 
-* `memory.max_usage_in_bytes` becomes `memory.peak`, but this is not in any currently released kernel ([torvalds/linux@8e20d4b](https://github.com/torvalds/linux/commit/8e20d4b332660a32e842e20c34cfc3b3456bc6dc))
-* `cpuacct.usage_percpu` is exposed via eBPF in kernel 6.6+, but not through cgroupfs although it might be for a future kernel.
+* `memory.max_usage_in_bytes` becomes `memory.peak`, but this is not in any currently released kernel ([torvalds/linux@8e20d4b](https://github.com/torvalds/linux/commit/8e20d4b332660a32e842e20c34cfc3b3456bc6dc)). This is working on 5.14 kernel on EL9.
+* `cpuacct.usage_percpu` is exposed via eBPF in kernel 6.6+, but not through cgroupfs although it might be for a future kernel. At the moment, the exporter will get the overall CPU usage of the job and divide it by the number of allocated cores to get an average CPU usage per core.
 
 ## Sample
 

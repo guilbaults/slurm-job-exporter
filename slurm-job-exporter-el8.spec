@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.4.7
+Version:  0.4.8
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -38,6 +38,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Mon Jun 30 2025 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.8-1
+- Adding cpu monitoring for cgroup v2
 * Thu Apr 10 2025 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.7-1
 - Fixing duplicated GPU metrics
 * Mon Apr 07 2025 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.6-1
