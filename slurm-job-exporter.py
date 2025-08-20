@@ -122,8 +122,18 @@ class SlurmJobCollector(object):
         for proc in psutil.process_iter():
             if monitor == 'dcgm' and proc.name() == 'nv-hostengine':
                 # DCGM is running on this host
-                # Load DCGM bindings from the RPM
-                sys.path.insert(0, '/usr/local/dcgm/bindings/python3/')
+                # Find the installed version
+                nvh_out = os.popen("""nv-hostengine --version""").read().split("\n")
+                # Search DCGM major version from the line similar to : "Version : 4.4.0"
+                rexp = re.compile("^Version.*")
+                dcgm_version = list(filter(rexp.match, nvh_out))[0].split(" : ")[1].split(".")[0]
+
+                # Set DCGM bindings
+                if int(dcgm_version) >= 4:
+                    dcgm_binding_path = "/usr/share/datacenter-gpu-manager-" + dcgm_version + "/bindings/python3/"
+                else:
+                    dcgm_binding_path = "/usr/local/dcgm/bindings/python3/"
+                sys.path.insert(0, dcgm_binding_path)
 
                 try:
                     import pydcgm
