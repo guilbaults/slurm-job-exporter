@@ -123,7 +123,11 @@ class SlurmJobCollector(object):
             if monitor == 'dcgm' and proc.name() == 'nv-hostengine':
                 # DCGM is running on this host
                 # Find the installed version
-                dcgm_version=os.popen("""nv-hostengine --version | awk '/^Version/ { printf "%s",substr($3,1,1) }'""").read()
+                #dcgm_version=os.popen("""nv-hostengine --version | awk '/^Version/ { printf "%s",substr($3,1,1) }'""").read()
+                nvh_out=os.popen("""nv-hostengine --version""").read().split("\n")
+                rexp=re.compile("^Version.*")
+                dcgm_version=list(filter(rexp.match, nvh_out))[0].split(" : ")[1].split(".")[0]
+
                 # Set DCGM bindings
                 if int(dcgm_version) >= 4:
                     dcgm_binding_path = "/usr/share/datacenter-gpu-manager-" + dcgm_version +  "/bindings/python3/"
