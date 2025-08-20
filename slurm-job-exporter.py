@@ -123,8 +123,8 @@ class SlurmJobCollector(object):
             if monitor == 'dcgm' and proc.name() == 'nv-hostengine':
                 # DCGM is running on this host
                 # Find the installed version
-                #dcgm_version=os.popen("""nv-hostengine --version | awk '/^Version/ { printf "%s",substr($3,1,1) }'""").read()
                 nvh_out=os.popen("""nv-hostengine --version""").read().split("\n")
+                # Search DCGM major version from the line similar to : "Version : 4.4.0"
                 rexp=re.compile("^Version.*")
                 dcgm_version=list(filter(rexp.match, nvh_out))[0].split(" : ")[1].split(".")[0]
 
