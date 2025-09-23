@@ -8,7 +8,6 @@ URL:      https://github.com/guilbaults/slurm-job-exporter
 Source0:  https://github.com/guilbaults/%{name}/archive/refs/tags/v%{version}.tar.gz
 
 BuildArch:      noarch
-BuildRequires:	systemd
 Requires:       python3
 Requires:       python3-psutil
 
