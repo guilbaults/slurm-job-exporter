@@ -177,25 +177,25 @@ class SlurmJobCollector(object):
 
                     # TODO: test with MIG to be sure it works
                     # We start with those and assume they are always available
-                    avail_metrics = set(
+                    avail_metrics = {
                         dcgm_fields.DCGM_FI_DEV_NAME,
                         dcgm_fields.DCGM_FI_DEV_UUID,
                         dcgm_fields.DCGM_FI_DEV_CUDA_VISIBLE_DEVICES_STR,
                         dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
                         dcgm_fields.DCGM_FI_DEV_FB_TOTAL,
                         dcgm_fields.DCGM_FI_DEV_FB_USED,
-                    )
-                    metric_groups = pydcgm.dcgm_agent.dcgmProfGetSupportedMetricGroups(self.handle, saved_gpu_id)
+                    }
+                    metric_groups = pydcgm.dcgm_agent.dcgmProfGetSupportedMetricGroups(self.handle.handle, saved_gpu_id)
                     for mg in metric_groups.metricGroups[:metric_groups.numMetricGroups]:
                         for field in mg.fieldIds[:mg.numFieldIds]:
                             avail_metrics.add(field)
                     # This is to only keep the available metrics from the set
                     # of those we want
-                    self.used_metrics = set(self.fieldIds.keys()) | avail_metrics
+                    self.used_metrics = set(self.fieldIds_dict.keys()) & avail_metrics
                     print("Using metrics:")
                     for metric in self.used_metrics:
-                        print(self.fieldIds[metric])
-                    self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(used_metrics))
+                        print(self.fieldIds_dict[metric])
+                    self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.used_metrics))
 
                     self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
 
