@@ -316,6 +316,7 @@ global (device) memory was being read or written.',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
 
         if self.MONITOR_DCGM:
+            import dcgm_fields  # to statisfy flake8
             # DCGM have additional metrics for GPU
             if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY in self.used_metrics:
                 gauge_sm_occupancy_gpu = GaugeMetricFamily(
@@ -346,12 +347,12 @@ per elapsed cycle)',
                     'Ratio of cycles the fp16 pipe is active',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
             if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
-                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
+                    dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
                 gauge_nvlink_gpu = GaugeMetricFamily(
                     'slurm_job_nvlink_gpu', 'Nvlink tx/rx bytes per second',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
             if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
-                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
+                    dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
                 gauge_pcie_gpu = GaugeMetricFamily(
                     'slurm_job_pcie_gpu', 'PCIe tx/rx bytes per second',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
@@ -659,10 +660,10 @@ per elapsed cycle)',
             if dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE in self.used_metrics:
                 yield gauge_fp16_gpu
             if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
-                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
+                    dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
                 yield gauge_pcie_gpu
             if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
-                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
+                    dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
                 yield gauge_nvlink_gpu
 
 
