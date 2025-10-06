@@ -345,13 +345,13 @@ per elapsed cycle)',
                     'slurm_job_fp16_gpu',
                     'Ratio of cycles the fp16 pipe is active',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            if dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
-                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics:
+            if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
+                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
                 gauge_nvlink_gpu = GaugeMetricFamily(
                     'slurm_job_nvlink_gpu', 'Nvlink tx/rx bytes per second',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
-            if dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
-                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics:
+            if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
+                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
                 gauge_pcie_gpu = GaugeMetricFamily(
                     'slurm_job_pcie_gpu', 'PCIe tx/rx bytes per second',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
@@ -658,11 +658,11 @@ per elapsed cycle)',
                 yield gauge_fp32_gpu
             if dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE in self.used_metrics:
                 yield gauge_fp16_gpu
-            if dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
-                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics:
+            if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
+                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
                 yield gauge_pcie_gpu
-            if dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
-                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics:
+            if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
+                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
                 yield gauge_nvlink_gpu
 
 
