@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.4.9
+Version:  0.4.10
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -37,6 +37,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Tue Oct 14 2025 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.10-1
+- Adding dynamic detection of GPU features instead of hardcoding them
 * Thu Aug 21 2025 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.9-1
 - Adding support for DCGM v4
 * Mon Jun 30 2025 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.8-1
