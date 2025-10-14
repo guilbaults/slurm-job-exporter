@@ -173,23 +173,31 @@ class SlurmJobCollector(object):
                         device = pydcgm.dcgm_agent.dcgmGetDeviceAttributes(self.handle.handle, gpu_id)
                         name = device.identifiers.deviceName
                         print('Detected gpu {} with ID {}'.format(name, gpu_id))
+                        saved_gpu_id = gpu_id
 
-                    self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.fieldIds_dict.keys()))
+                    # TODO: test with MIG to be sure it works
+                    # We start with those and assume they are always available
+                    avail_metrics = {
+                        dcgm_fields.DCGM_FI_DEV_NAME,
+                        dcgm_fields.DCGM_FI_DEV_UUID,
+                        dcgm_fields.DCGM_FI_DEV_CUDA_VISIBLE_DEVICES_STR,
+                        dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
+                        dcgm_fields.DCGM_FI_DEV_FB_TOTAL,
+                        dcgm_fields.DCGM_FI_DEV_FB_USED,
+                    }
+                    metric_groups = pydcgm.dcgm_agent.dcgmProfGetSupportedMetricGroups(self.handle.handle, saved_gpu_id)
+                    for mg in metric_groups.metricGroups[:metric_groups.numMetricGroups]:
+                        for field in mg.fieldIds[:mg.numFieldIds]:
+                            avail_metrics.add(field)
+                    # This is to only keep the available metrics from the set
+                    # of those we want
+                    self.used_metrics = set(self.fieldIds_dict.keys()) & avail_metrics
+                    print("Using metrics:")
+                    for metric in self.used_metrics:
+                        print(self.fieldIds_dict[metric])
+                    self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.used_metrics))
 
-                    try:
-                        # try watching with lp64 features
-                        self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
-                    except dcgm_structs.DCGMError_NotSupported:
-                        # slightly kludgy: recreate group - without fp64
-                        self.field_group.Delete()
-                        del self.fieldIds_dict[dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE]
-                        self.UNSUPPORTED_FEATURES.append('fp64')
-                        self.field_group = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-fg", fieldIds=list(self.fieldIds_dict.keys()))
-
-                        # try watching without lp64 features
-                        self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
-
-                        print('Disabled fp64 metrics as an installed gpu does not support it')
+                    self.group.samples.WatchFields(self.field_group, dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
 
                     self.handle.GetSystem().UpdateAllFields(True)
 
@@ -308,37 +316,46 @@ global (device) memory was being read or written.',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
 
         if self.MONITOR_DCGM:
+            import dcgm_fields  # to statisfy flake8
             # DCGM have additional metrics for GPU
-            gauge_sm_occupancy_gpu = GaugeMetricFamily(
-                'slurm_job_sm_occupancy_gpu',
-                'The ratio of number of warps resident on an SM. \
+            if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY in self.used_metrics:
+                gauge_sm_occupancy_gpu = GaugeMetricFamily(
+                    'slurm_job_sm_occupancy_gpu',
+                    'The ratio of number of warps resident on an SM. \
 (number of resident as a ratio of the theoretical maximum number of warps \
 per elapsed cycle)',
-                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_tensor_gpu = GaugeMetricFamily(
-                'slurm_job_tensor_gpu',
-                'The ratio of cycles the tensor (HMMA) pipe is active \
+                    labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            if dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE in self.used_metrics:
+                gauge_tensor_gpu = GaugeMetricFamily(
+                    'slurm_job_tensor_gpu',
+                    'The ratio of cycles the tensor (HMMA) pipe is active \
 (off the peak sustained elapsed cycles)',
-                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            if 'fp64' not in self.UNSUPPORTED_FEATURES:
+                    labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            if dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE in self.used_metrics:
                 gauge_fp64_gpu = GaugeMetricFamily(
                     'slurm_job_fp64_gpu',
                     'Ratio of cycles the fp64 pipe is active',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_fp32_gpu = GaugeMetricFamily(
-                'slurm_job_fp32_gpu',
-                'Ratio of cycles the fp32 pipe is active',
-                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_fp16_gpu = GaugeMetricFamily(
-                'slurm_job_fp16_gpu',
-                'Ratio of cycles the fp16 pipe is active',
-                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_nvlink_gpu = GaugeMetricFamily(
-                'slurm_job_nvlink_gpu', 'Nvlink tx/rx bytes per second',
-                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
-            gauge_pcie_gpu = GaugeMetricFamily(
-                'slurm_job_pcie_gpu', 'PCIe tx/rx bytes per second',
-                labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
+            if dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE in self.used_metrics:
+                gauge_fp32_gpu = GaugeMetricFamily(
+                    'slurm_job_fp32_gpu',
+                    'Ratio of cycles the fp32 pipe is active',
+                    labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            if dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE in self.used_metrics:
+                gauge_fp16_gpu = GaugeMetricFamily(
+                    'slurm_job_fp16_gpu',
+                    'Ratio of cycles the fp16 pipe is active',
+                    labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
+            if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
+                    dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
+                gauge_nvlink_gpu = GaugeMetricFamily(
+                    'slurm_job_nvlink_gpu', 'Nvlink tx/rx bytes per second',
+                    labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
+            if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
+                    dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
+                gauge_pcie_gpu = GaugeMetricFamily(
+                    'slurm_job_pcie_gpu', 'PCIe tx/rx bytes per second',
+                    labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
 
         if os.path.exists("/sys/fs/cgroup/memory"):
             cgroups = 1  # we are running cgroups v1
@@ -572,35 +589,43 @@ per elapsed cycle)',
                         dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
 
                     # Convert to % to keep the same format as NVML
-                    gauge_sm_occupancy_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type],
-                        dcgm_data[gpu_uuid]['sm_occupancy'] * 100)
-                    gauge_tensor_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type],
-                        dcgm_data[gpu_uuid]['tensor_active'] * 100)
-                    if 'fp64' not in self.UNSUPPORTED_FEATURES:
+                    if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY in self.used_metrics:
+                        gauge_sm_occupancy_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu_uuid]['sm_occupancy'] * 100)
+                    if dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE in self.used_metrics:
+                        gauge_tensor_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu_uuid]['tensor_active'] * 100)
+                    if dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE in self.used_metrics:
                         gauge_fp64_gpu.add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu_uuid]['fp64_active'] * 100)
-                    gauge_fp32_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type],
-                        dcgm_data[gpu_uuid]['fp32_active'] * 100)
-                    gauge_fp16_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type],
-                        dcgm_data[gpu_uuid]['fp16_active'] * 100)
+                    if dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE in self.used_metrics:
+                        gauge_fp32_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu_uuid]['fp32_active'] * 100)
+                    if dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE in self.used_metrics:
+                        gauge_fp16_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu_uuid]['fp16_active'] * 100)
 
-                    gauge_pcie_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type, 'TX'],
-                        dcgm_data[gpu_uuid]['pcie_tx_bytes'])
-                    gauge_pcie_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type, 'RX'],
-                        dcgm_data[gpu_uuid]['pcie_rx_bytes'])
-                    gauge_nvlink_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type, 'TX'],
-                        dcgm_data[gpu_uuid]['nvlink_tx_bytes'])
-                    gauge_nvlink_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type, 'RX'],
-                        dcgm_data[gpu_uuid]['nvlink_rx_bytes'])
+                    if dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics:
+                        gauge_pcie_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type, 'TX'],
+                            dcgm_data[gpu_uuid]['pcie_tx_bytes'])
+                    if dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics:
+                        gauge_pcie_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type, 'RX'],
+                            dcgm_data[gpu_uuid]['pcie_rx_bytes'])
+                    if dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics:
+                        gauge_nvlink_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type, 'TX'],
+                            dcgm_data[gpu_uuid]['nvlink_tx_bytes'])
+                    if dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics:
+                        gauge_nvlink_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type, 'RX'],
+                            dcgm_data[gpu_uuid]['nvlink_rx_bytes'])
 
         yield gauge_memory_usage
         yield gauge_memory_max
@@ -624,14 +649,22 @@ per elapsed cycle)',
             yield gauge_utilization_gpu
             yield gauge_memory_utilization_gpu
         if self.MONITOR_DCGM:
-            yield gauge_sm_occupancy_gpu
-            yield gauge_tensor_gpu
-            if 'fp64' not in self.UNSUPPORTED_FEATURES:
+            if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY in self.used_metrics:
+                yield gauge_sm_occupancy_gpu
+            if dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE in self.used_metrics:
+                yield gauge_tensor_gpu
+            if dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE in self.used_metrics:
                 yield gauge_fp64_gpu
-            yield gauge_fp32_gpu
-            yield gauge_fp16_gpu
-            yield gauge_pcie_gpu
-            yield gauge_nvlink_gpu
+            if dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE in self.used_metrics:
+                yield gauge_fp32_gpu
+            if dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE in self.used_metrics:
+                yield gauge_fp16_gpu
+            if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
+                    dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
+                yield gauge_pcie_gpu
+            if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
+                    dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
+                yield gauge_nvlink_gpu
 
 
 class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
