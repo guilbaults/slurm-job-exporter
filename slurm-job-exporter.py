@@ -78,7 +78,10 @@ def cgroup_gpus(job_dir, cgroups):
         cgroup_path = os.path.join(job_dir, "gpu_probe")
         # This will create a new cgroup under the root of the job.
         # This is required for v2 since we can only add tasks to leaf cgroups
-        os.mkdir(cgroup_path)
+        try:
+            os.mkdir(cgroup_path)
+        except FileExistsError:
+            pass
         task_file = os.path.join(cgroup_path, "cgroup.procs")
     try:
         res = subprocess.check_output(["get_gpus.sh", task_file]).strip().decode()
