@@ -144,12 +144,7 @@ class SlurmJobCollector(object):
                     import dcgm_structs
 
                     self.handle = pydcgm.DcgmHandle(None, 'localhost')
-                    self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_DEFAULT_INSTANCES)
-
-                    if len(self.group.GetEntities()) == 0:
-                        # No MIG, switch to default group
-                        self.group.Delete()
-                        self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_DEFAULT)
+                    self.group = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter", groupType=dcgm_structs.DCGM_GROUP_DEFAULT_ENTITIES)
 
                     # https://github.com/NVIDIA/gpu-monitoring-tools/blob/master/bindings/go/dcgm/dcgm_fields.h
                     self.fieldIds_dict = {
