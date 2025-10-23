@@ -16,6 +16,7 @@ DCGM is recommended when NVIDIA GPUs are installed:
 * If DCGM is installed and running, it will be used instead of NVML.
 * NVLINK and and a few other stats are only available with DCGM.
 * MIG devices are supported.
+* The proprietary package is required since this is using the profiling module of DCGM (datacenter-gpu-manager-4-proprietary)
 
 `nvidia-smi -L` is run in each cgroup to detect which GPU is allocated to a Slurm job.
 
