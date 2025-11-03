@@ -209,6 +209,9 @@ class SlurmJobCollector(object):
                     self.MONITOR_PYNVML = False
                 except ImportError:
                     self.MONITOR_DCGM = False
+                except dcgm_structs.DcgmError as e:
+                    print('DCGM initialization error: {}'.format(e))
+                    self.MONITOR_DCGM = False
 
         # using nvml as a fallback for DCGM
         if monitor == 'nvml' or self.MONITOR_DCGM is False:
