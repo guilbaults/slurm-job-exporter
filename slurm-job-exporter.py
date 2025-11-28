@@ -236,7 +236,8 @@ class SlurmJobCollector(object):
             for v in data[k].keys():
                 data_dict = {}
                 for metric_id in data[k][v].keys():
-                    data_dict[self.fieldIds_dict[metric_id]] = data[k][v][metric_id].values[0].value
+                    if not data[k][v][metric_id].values[0].isBlank:
+                        data_dict[self.fieldIds_dict[metric_id]] = data[k][v][metric_id].values[0].value
                 gpus[data_dict['uuid']] = data_dict
         return gpus
 
@@ -584,51 +585,64 @@ per elapsed cycle)',
                     gauge_power_gpu.add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         dcgm_data[gpu_uuid]['power_usage'] * 1000)  # convert to mW
-                    gauge_utilization_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type],
-                        dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
-                    gauge_memory_utilization_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type],
-                        dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
+                    if dcgm_fields.DCGM_FI_PROF_SM_ACTIVE in self.used_metrics:
+                        if 'sm_active' in dcgm_data[gpu_uuid]:
+                            gauge_utilization_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type],
+                                dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
+                    if dcgm_fields.DCGM_FI_PROF_DRAM_ACTIVE in self.used_metrics:
+                        if 'dram_active' in dcgm_data[gpu_uuid]:
+                            gauge_memory_utilization_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type],
+                                dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
 
                     # Convert to % to keep the same format as NVML
                     if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY in self.used_metrics:
-                        gauge_sm_occupancy_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['sm_occupancy'] * 100)
+                        if 'sm_occupancy' in dcgm_data[gpu_uuid]:
+                            gauge_sm_occupancy_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type],
+                                dcgm_data[gpu_uuid]['sm_occupancy'] * 100)
                     if dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE in self.used_metrics:
-                        gauge_tensor_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['tensor_active'] * 100)
+                        if 'tensor_active' in dcgm_data[gpu_uuid]:
+                            gauge_tensor_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type],
+                                dcgm_data[gpu_uuid]['tensor_active'] * 100)
                     if dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE in self.used_metrics:
-                        gauge_fp64_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['fp64_active'] * 100)
+                        if 'fp64_active' in dcgm_data[gpu_uuid]:
+                            gauge_fp64_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type],
+                                dcgm_data[gpu_uuid]['fp64_active'] * 100)
                     if dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE in self.used_metrics:
-                        gauge_fp32_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['fp32_active'] * 100)
+                        if 'fp32_active' in dcgm_data[gpu_uuid]:
+                            gauge_fp32_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type],
+                                dcgm_data[gpu_uuid]['fp32_active'] * 100)
                     if dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE in self.used_metrics:
-                        gauge_fp16_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['fp16_active'] * 100)
+                        if 'fp16_active' in dcgm_data[gpu_uuid]:
+                            gauge_fp16_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type],
+                                dcgm_data[gpu_uuid]['fp16_active'] * 100)
 
                     if dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics:
-                        gauge_pcie_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type, 'TX'],
-                            dcgm_data[gpu_uuid]['pcie_tx_bytes'])
+                        if 'pcie_tx_bytes' in dcgm_data[gpu_uuid]:
+                            gauge_pcie_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type, 'TX'],
+                                dcgm_data[gpu_uuid]['pcie_tx_bytes'])
                     if dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics:
-                        gauge_pcie_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type, 'RX'],
-                            dcgm_data[gpu_uuid]['pcie_rx_bytes'])
+                        if 'pcie_rx_bytes' in dcgm_data[gpu_uuid]:
+                            gauge_pcie_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type, 'RX'],
+                                dcgm_data[gpu_uuid]['pcie_rx_bytes'])
                     if dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics:
-                        gauge_nvlink_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type, 'TX'],
-                            dcgm_data[gpu_uuid]['nvlink_tx_bytes'])
+                        if 'nvlink_tx_bytes' in dcgm_data[gpu_uuid]:
+                            gauge_nvlink_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type, 'TX'],
+                                dcgm_data[gpu_uuid]['nvlink_tx_bytes'])
                     if dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics:
-                        gauge_nvlink_gpu.add_metric(
-                            [user, account, job, str(gpu), gpu_type, 'RX'],
-                            dcgm_data[gpu_uuid]['nvlink_rx_bytes'])
+                        if 'nvlink_rx_bytes' in dcgm_data[gpu_uuid]:
+                            gauge_nvlink_gpu.add_metric(
+                                [user, account, job, str(gpu), gpu_type, 'RX'],
+                                dcgm_data[gpu_uuid]['nvlink_rx_bytes'])
 
         yield gauge_memory_usage
         yield gauge_memory_max
@@ -649,8 +663,12 @@ per elapsed cycle)',
             yield gauge_memory_total_gpu
             yield gauge_memory_usage_gpu
             yield gauge_power_gpu
-            yield gauge_utilization_gpu
-            yield gauge_memory_utilization_gpu
+            if (self.MONITOR_PYNVML or
+                    dcgm_fields.DCGM_FI_PROF_SM_ACTIVE in self.used_metrics):
+                yield gauge_utilization_gpu
+            if (self.MONITOR_PYNVML or
+                    dcgm_fields.DCGM_FI_PROF_SM_ACTIVE in self.used_metrics):
+                yield gauge_memory_utilization_gpu
         if self.MONITOR_DCGM:
             if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY in self.used_metrics:
                 yield gauge_sm_occupancy_gpu
