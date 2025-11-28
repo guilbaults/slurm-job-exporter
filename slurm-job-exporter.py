@@ -663,11 +663,11 @@ per elapsed cycle)',
             yield gauge_memory_total_gpu
             yield gauge_memory_usage_gpu
             yield gauge_power_gpu
-            if self.MONITOR_PYNVML or \
-              dcgm_fields.DCGM_FI_PROF_SM_ACTIVE in self.used_metrics:
+            if (self.MONITOR_PYNVML or
+                    dcgm_fields.DCGM_FI_PROF_SM_ACTIVE in self.used_metrics):
                 yield gauge_utilization_gpu
-            if self.MONITOR_PYNVML or \
-              dcgm_fields.DCGM_FI_PROF_SM_ACTIVE in self.used_metrics:
+            if (self.MONITOR_PYNVML or
+                    dcgm_fields.DCGM_FI_PROF_SM_ACTIVE in self.used_metrics):
                 yield gauge_memory_utilization_gpu
         if self.MONITOR_DCGM:
             if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY in self.used_metrics:
