@@ -145,7 +145,7 @@ class SlurmJobCollector(object):
 
                     self.handle = pydcgm.DcgmHandle(None, 'localhost')
 
-                    self.groups = { "gpu": {}, "mig": {} }
+                    self.groups = {"gpu": {}, "mig": {}}
                     self.groups["gpu"] = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter-gpu", groupType=dcgm_structs.DCGM_GROUP_DEFAULT)
                     self.groups["mig"] = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter-mig", groupType=dcgm_structs.DCGM_GROUP_DEFAULT_INSTANCES)
 
@@ -203,7 +203,7 @@ class SlurmJobCollector(object):
                         dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES,
                     }
 
-                    self.field_groups = { "gpu": {}, "mig": {} }
+                    self.field_groups = {"gpu": {}, "mig": {}}
                     self.field_groups["gpu"] = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-gpu-fg", fieldIds=list(self.used_metrics))
                     self.field_groups["mig"] = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-mig-fg", fieldIds=list(set(self.used_metrics) ^ missing_mig_metrics))
 
