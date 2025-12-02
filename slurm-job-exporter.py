@@ -241,7 +241,7 @@ class SlurmJobCollector(object):
         import dcgm_structs
         gpus = {}
 
-        for group in ["gpu","mig"]:
+        for group in ["gpu", "mig"]:
             try:
                 data = self.groups[group].samples.GetLatest_v2(self.field_groups[group]).values
                 for k in data.keys():
