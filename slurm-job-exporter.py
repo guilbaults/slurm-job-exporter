@@ -145,9 +145,15 @@ class SlurmJobCollector(object):
 
                     self.handle = pydcgm.DcgmHandle(None, 'localhost')
 
-                    self.groups = {"gpu": {}, "mig": {}}
+                    self.groups = {}
                     self.groups["gpu"] = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter-gpu", groupType=dcgm_structs.DCGM_GROUP_DEFAULT)
                     self.groups["mig"] = pydcgm.DcgmGroup(self.handle, groupName="slurm-job-exporter-mig", groupType=dcgm_structs.DCGM_GROUP_DEFAULT_INSTANCES)
+
+                    # Remove MIG handling if there are no MIG devices
+                    if len(self.groups["mig"].GetEntities()) == 0:
+                        self.groups["mig"].Delete()
+                        del self.groups["mig"]
+
 
                     # https://github.com/NVIDIA/gpu-monitoring-tools/blob/master/bindings/go/dcgm/dcgm_fields.h
                     self.fieldIds_dict = {
@@ -203,12 +209,13 @@ class SlurmJobCollector(object):
                         dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES,
                     }
 
-                    self.field_groups = {"gpu": {}, "mig": {}}
+                    self.field_groups = {}
                     self.field_groups["gpu"] = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-gpu-fg", fieldIds=list(self.used_metrics))
-                    self.field_groups["mig"] = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-mig-fg", fieldIds=list(set(self.used_metrics) ^ missing_mig_metrics))
-
                     self.groups["gpu"].samples.WatchFields(self.field_groups["gpu"], dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
-                    self.groups["mig"].samples.WatchFields(self.field_groups["mig"], dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
+
+                    if "mig" in self.groups:
+                        self.field_groups["mig"] = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-mig-fg", fieldIds=list(set(self.used_metrics) ^ missing_mig_metrics))
+                        self.groups["mig"].samples.WatchFields(self.field_groups["mig"], dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
 
                     self.handle.GetSystem().UpdateAllFields(True)
 
@@ -241,17 +248,14 @@ class SlurmJobCollector(object):
         import dcgm_structs
         gpus = {}
 
-        for group in ["gpu", "mig"]:
-            try:
-                data = self.groups[group].samples.GetLatest_v2(self.field_groups[group]).values
-                for k in data.keys():
-                    for v in data[k].keys():
-                        data_dict = {}
-                        for metric_id in data[k][v].keys():
-                            data_dict[self.fieldIds_dict[metric_id]] = data[k][v][metric_id].values[0].value
-                        gpus[data_dict['uuid']] = data_dict
-            except dcgm_structs.DCGMError_GenericError:
-                pass
+        for group in self.groups.keys():
+            data = self.groups[group].samples.GetLatest_v2(self.field_groups[group]).values
+            for k in data.keys():
+                for v in data[k].keys():
+                    data_dict = {}
+                    for metric_id in data[k][v].keys():
+                        data_dict[self.fieldIds_dict[metric_id]] = data[k][v][metric_id].values[0].value
+                    gpus[data_dict['uuid']] = data_dict
 
         return gpus
 
