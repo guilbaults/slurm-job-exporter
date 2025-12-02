@@ -238,15 +238,20 @@ class SlurmJobCollector(object):
                 self.MONITOR_PYNVML = False
 
     def GetLatestGpuValuesAsDict(self):
+        import dcgm_structs
         gpus = {}
 
-        for data in [self.groups["gpu"].samples.GetLatest_v2(self.field_groups["gpu"]).values, self.groups["mig"].samples.GetLatest_v2(self.field_groups["mig"]).values]:
-            for k in data.keys():
-                for v in data[k].keys():
-                    data_dict = {}
-                    for metric_id in data[k][v].keys():
-                        data_dict[self.fieldIds_dict[metric_id]] = data[k][v][metric_id].values[0].value
-                    gpus[data_dict['uuid']] = data_dict
+        for group in ["gpu","mig"]:
+            try:
+                data = self.groups[group].samples.GetLatest_v2(self.field_groups[group]).values
+                for k in data.keys():
+                    for v in data[k].keys():
+                        data_dict = {}
+                        for metric_id in data[k][v].keys():
+                            data_dict[self.fieldIds_dict[metric_id]] = data[k][v][metric_id].values[0].value
+                        gpus[data_dict['uuid']] = data_dict
+            except dcgm_structs.DCGMError_GenericError:
+                pass
 
         return gpus
 
