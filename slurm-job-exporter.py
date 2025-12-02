@@ -154,7 +154,6 @@ class SlurmJobCollector(object):
                         self.groups["mig"].Delete()
                         del self.groups["mig"]
 
-
                     # https://github.com/NVIDIA/gpu-monitoring-tools/blob/master/bindings/go/dcgm/dcgm_fields.h
                     self.fieldIds_dict = {
                         dcgm_fields.DCGM_FI_DEV_NAME: 'name',
@@ -245,7 +244,6 @@ class SlurmJobCollector(object):
                 self.MONITOR_PYNVML = False
 
     def GetLatestGpuValuesAsDict(self):
-        import dcgm_structs
         gpus = {}
 
         for group in self.groups.keys():
