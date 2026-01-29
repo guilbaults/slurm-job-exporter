@@ -136,6 +136,7 @@ class SlurmJobCollector(object):
                     dcgm_binding_path = "/usr/share/datacenter-gpu-manager-" + dcgm_version + "/bindings/python3/"
                 else:
                     dcgm_binding_path = "/usr/local/dcgm/bindings/python3/"
+                print('Using DCGM bindings from {}'.format(dcgm_binding_path))
                 sys.path.insert(0, dcgm_binding_path)
 
                 try:
@@ -221,7 +222,8 @@ class SlurmJobCollector(object):
                     print('Monitoring GPUs with DCGM with an update interval of {} seconds'.format(dcgm_update_interval))
                     self.MONITOR_DCGM = True
                     self.MONITOR_PYNVML = False
-                except ImportError:
+                except ImportError as e:
+                    print('Could not import DCGM python bindings: {}'.format(e))
                     self.MONITOR_DCGM = False
 
         # using nvml as a fallback for DCGM
