@@ -206,6 +206,7 @@ class SlurmJobCollector(object):
                         dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES,
                         dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES,
                         dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES,
+                        dcgm_fields.DCGM_FI_DEV_POWER_USAGE,
                     }
 
                     self.field_groups = {}
@@ -598,15 +599,17 @@ per elapsed cycle)',
                     gauge_memory_usage_gpu.add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         int(dcgm_data[gpu_uuid]['fb_used']) * 1024 * 1024)  # convert to bytes
-                    gauge_power_gpu.add_metric(
-                        [user, account, job, str(gpu), gpu_type],
-                        dcgm_data[gpu_uuid]['power_usage'] * 1000)  # convert to mW
                     gauge_utilization_gpu.add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
                     gauge_memory_utilization_gpu.add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
+
+                    if 'power_usage' in dcgm_data[gpu_uuid]:
+                        gauge_power_gpu.add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu_uuid]['power_usage'] * 1000)  # convert to mW
 
                     # Convert to % to keep the same format as NVML
                     if 'sm_occupancy' in dcgm_data[gpu_uuid]:
