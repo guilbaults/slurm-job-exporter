@@ -512,10 +512,10 @@ per elapsed cycle)',
                 for t in p.threads():
                     try:
                         pt = psutil.Process(t.id)
+                        pt_status = pt.status()
                     except psutil.NoSuchProcess:
                         # The thread disappeared between the time we got the list and now
                         continue
-                    pt_status = pt.status()
                     if pt_status in tasks_state:
                         tasks_state[pt_status] += 1
                     else:
