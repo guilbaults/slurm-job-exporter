@@ -122,6 +122,20 @@ class SlurmJobCollector(object):
         self.MONITOR_DCGM = False
         self.MONITOR_PYNVML = False
         self.UNSUPPORTED_FEATURES = []
+
+        # Check if GPUs are present before attempting DCGM/NVML initialization
+        gpu_present = False
+        try:
+            import subprocess
+            result = subprocess.run(['nvidia-smi', '-L'], capture_output=True, timeout=2)
+            gpu_present = (result.returncode == 0)
+        except (FileNotFoundError, subprocess.TimeoutExpired, Exception):
+            pass
+
+        if not gpu_present:
+            print('No GPUs detected on this node - running in CPU-only mode')
+            return
+
         for proc in psutil.process_iter():
             if monitor == 'dcgm' and proc.name() == 'nv-hostengine':
                 # DCGM is running on this host
