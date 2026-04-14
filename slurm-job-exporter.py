@@ -229,75 +229,76 @@ class SlurmJobCollector(object):
         """
         Run a collection cycle and update exported stats
         """
-        gauge_memory_usage = GaugeMetricFamily(
+        metrics = {}
+        metrics['gauge_memory_usage'] = GaugeMetricFamily(
             'slurm_job_memory_usage', 'Memory used by a job',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_max = GaugeMetricFamily(
+        metrics['gauge_memory_max'] = GaugeMetricFamily(
             'slurm_job_memory_max', 'Maximum memory used by a job',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_limit = GaugeMetricFamily(
+        metrics['gauge_memory_limit'] = GaugeMetricFamily(
             'slurm_job_memory_limit', 'Memory limit of a job',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_cache = GaugeMetricFamily(
+        metrics['gauge_memory_cache'] = GaugeMetricFamily(
             'slurm_job_memory_cache', 'bytes of page cache memory',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_rss = GaugeMetricFamily(
+        metrics['gauge_memory_rss'] = GaugeMetricFamily(
             'slurm_job_memory_rss',
             'bytes of anonymous and swap cache memory (includes transparent hugepages).',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_rss_huge = GaugeMetricFamily(
+        metrics['gauge_memory_rss_huge'] = GaugeMetricFamily(
             'slurm_job_memory_rss_huge',
             'bytes of anonymous transparent hugepages',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_mapped_file = GaugeMetricFamily(
+        metrics['gauge_memory_mapped_file'] = GaugeMetricFamily(
             'slurm_job_memory_mapped_file',
             'bytes of mapped file (includes tmpfs/shmem)',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_active_file = GaugeMetricFamily(
+        metrics['gauge_memory_active_file'] = GaugeMetricFamily(
             'slurm_job_memory_active_file',
             'bytes of file-backed memory on active LRU list',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_inactive_file = GaugeMetricFamily(
+        metrics['gauge_memory_inactive_file'] = GaugeMetricFamily(
             'slurm_job_memory_inactive_file',
             'bytes of file-backed memory on inactive LRU list',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_memory_unevictable = GaugeMetricFamily(
+        metrics['gauge_memory_unevictable'] = GaugeMetricFamily(
             'slurm_job_memory_unevictable',
             'bytes of memory that cannot be reclaimed (mlocked etc)',
             labels=['user', 'account', 'slurmjobid'])
 
-        counter_core_usage = CounterMetricFamily(
+        metrics['counter_core_usage'] = CounterMetricFamily(
             'slurm_job_core_usage', 'Cpu usage of cores allocated to a job',
             labels=['user', 'account', 'slurmjobid', 'core'])
 
-        gauge_process_count = GaugeMetricFamily(
+        metrics['gauge_process_count'] = GaugeMetricFamily(
             'slurm_job_process_count', 'Number of processes in a job',
             labels=['user', 'account', 'slurmjobid'])
-        gauge_threads_count = GaugeMetricFamily(
+        metrics['gauge_threads_count'] = GaugeMetricFamily(
             'slurm_job_threads_count', 'Number of threads in a job',
             labels=['user', 'account', 'slurmjobid', 'state'])
 
-        counter_process_usage = CounterMetricFamily(
+        metrics['counter_process_usage'] = CounterMetricFamily(
             'slurm_job_process_usage', 'Cpu usage of processes within a job',
             labels=['user', 'account', 'slurmjobid', 'exe'])
 
         if self.MONITOR_PYNVML or self.MONITOR_DCGM:
             # pynvml is used as a fallback for DCGM, both can collect GPU stats
-            gauge_memory_total_gpu = GaugeMetricFamily(
+            metrics['gauge_memory_total_gpu'] = GaugeMetricFamily(
                 'slurm_job_memory_total_gpu', 'Memory available on a GPU',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_memory_usage_gpu = GaugeMetricFamily(
+            metrics['gauge_memory_usage_gpu'] = GaugeMetricFamily(
                 'slurm_job_memory_usage_gpu', 'Memory used by a job on a GPU',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_power_gpu = GaugeMetricFamily(
+            metrics['gauge_power_gpu'] = GaugeMetricFamily(
                 'slurm_job_power_gpu', 'Power used by a job on a GPU in mW',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_utilization_gpu = GaugeMetricFamily(
+            metrics['gauge_utilization_gpu'] = GaugeMetricFamily(
                 'slurm_job_utilization_gpu',
                 'Percent of time over the past sample period during which \
 one or more kernels was executing on the GPU.',
                 labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            gauge_memory_utilization_gpu = GaugeMetricFamily(
+            metrics['gauge_memory_utilization_gpu'] = GaugeMetricFamily(
                 'slurm_job_utilization_gpu_memory',
                 'Percent of time over the past sample period during which \
 global (device) memory was being read or written.',
@@ -306,41 +307,41 @@ global (device) memory was being read or written.',
         if self.MONITOR_DCGM:
             # DCGM have additional metrics for GPU
             if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY in self.used_metrics:
-                gauge_sm_occupancy_gpu = GaugeMetricFamily(
+                metrics['gauge_sm_occupancy_gpu'] = GaugeMetricFamily(
                     'slurm_job_sm_occupancy_gpu',
                     'The ratio of number of warps resident on an SM. \
 (number of resident as a ratio of the theoretical maximum number of warps \
 per elapsed cycle)',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
             if dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE in self.used_metrics:
-                gauge_tensor_gpu = GaugeMetricFamily(
+                metrics['gauge_tensor_gpu'] = GaugeMetricFamily(
                     'slurm_job_tensor_gpu',
                     'The ratio of cycles the tensor (HMMA) pipe is active \
 (off the peak sustained elapsed cycles)',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
             if dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE in self.used_metrics:
-                gauge_fp64_gpu = GaugeMetricFamily(
+                metrics['gauge_fp64_gpu'] = GaugeMetricFamily(
                     'slurm_job_fp64_gpu',
                     'Ratio of cycles the fp64 pipe is active',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
             if dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE in self.used_metrics:
-                gauge_fp32_gpu = GaugeMetricFamily(
+                metrics["gauge_fp32_gpu"] = GaugeMetricFamily(
                     'slurm_job_fp32_gpu',
                     'Ratio of cycles the fp32 pipe is active',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
             if dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE in self.used_metrics:
-                gauge_fp16_gpu = GaugeMetricFamily(
+                metrics["gauge_fp16_gpu"] = GaugeMetricFamily(
                     'slurm_job_fp16_gpu',
                     'Ratio of cycles the fp16 pipe is active',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
             if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
                     dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
-                gauge_nvlink_gpu = GaugeMetricFamily(
+                metrics["gauge_nvlink_gpu"] = GaugeMetricFamily(
                     'slurm_job_nvlink_gpu', 'Nvlink tx/rx bytes per second',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
             if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
                     dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
-                gauge_pcie_gpu = GaugeMetricFamily(
+                metrics["gauge_pcie_gpu"] = GaugeMetricFamily(
                     'slurm_job_pcie_gpu', 'PCIe tx/rx bytes per second',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
 
@@ -384,50 +385,50 @@ per elapsed cycle)',
                 account = "error"
 
             with open(os.path.join(job_dir, ('memory.usage_in_bytes' if cgroups == 1 else 'memory.current')), 'r') as f_usage:
-                gauge_memory_usage.add_metric([user, account, job], int(f_usage.read()))
+                metrics["gauge_memory_usage"].add_metric([user, account, job], int(f_usage.read()))
             try:
                 with open(os.path.join(job_dir, ('memory.max_usage_in_bytes' if cgroups == 1 else 'memory.peak')), 'r') as f_max:
-                    gauge_memory_max.add_metric([user, account, job], int(f_max.read()))
+                    metrics["gauge_memory_max"].add_metric([user, account, job], int(f_max.read()))
             except FileNotFoundError:
                 # 'memory.peak' is only available in kernel 6.8+
                 pass
 
             with open(os.path.join(job_dir, ('memory.limit_in_bytes' if cgroups == 1 else 'memory.max')), 'r') as f_limit:
-                gauge_memory_limit.add_metric([user, account, job], int(f_limit.read()))
+                metrics["gauge_memory_limit"].add_metric([user, account, job], int(f_limit.read()))
 
             with open(os.path.join(job_dir, 'memory.stat'), 'r') as f_stats:
                 stats = dict(line.split() for line in f_stats.readlines())
             if cgroups == 1:
-                gauge_memory_cache.add_metric(
+                metrics["gauge_memory_cache"].add_metric(
                     [user, account, job], int(stats['total_cache']))
-                gauge_memory_rss.add_metric(
+                metrics["gauge_memory_rss"].add_metric(
                     [user, account, job], int(stats['total_rss']))
-                gauge_memory_rss_huge.add_metric(
+                metrics["gauge_memory_rss_huge"].add_metric(
                     [user, account, job], int(stats['total_rss_huge']))
-                gauge_memory_mapped_file.add_metric(
+                metrics["gauge_memory_mapped_file"].add_metric(
                     [user, account, job], int(stats['total_mapped_file']))
-                gauge_memory_active_file.add_metric(
+                metrics["gauge_memory_active_file"].add_metric(
                     [user, account, job], int(stats['total_active_file']))
-                gauge_memory_inactive_file.add_metric(
+                metrics["gauge_memory_inactive_file"].add_metric(
                     [user, account, job], int(stats['total_inactive_file']))
-                gauge_memory_unevictable.add_metric(
+                metrics["gauge_memory_unevictable"].add_metric(
                     [user, account, job], int(stats['total_unevictable']))
             else:
-                gauge_memory_cache.add_metric(
+                metrics["gauge_memory_cache"].add_metric(
                     [user, account, job], int(stats['file']))
-                gauge_memory_rss.add_metric(
+                metrics["gauge_memory_rss"].add_metric(
                     [user, account, job],
                     int(stats['anon']) + int(stats['swapcached']))
-                gauge_memory_rss_huge.add_metric(
+                metrics["gauge_memory_rss_huge"].add_metric(
                     [user, account, job], int(stats['anon_thp']))
-                gauge_memory_mapped_file.add_metric(
+                metrics["gauge_memory_mapped_file"].add_metric(
                     [user, account, job],
                     int(stats['file_mapped']) + int(stats['shmem']))
-                gauge_memory_active_file.add_metric(
+                metrics["gauge_memory_active_file"].add_metric(
                     [user, account, job], int(stats['active_file']))
-                gauge_memory_inactive_file.add_metric(
+                metrics["gauge_memory_inactive_file"].add_metric(
                     [user, account, job], int(stats['inactive_file']))
-                gauge_memory_unevictable.add_metric(
+                metrics["gauge_memory_unevictable"].add_metric(
                     [user, account, job], int(stats['unevictable']))
 
             # get the allocated cores
@@ -444,8 +445,7 @@ per elapsed cycle)',
                 with open('/sys/fs/cgroup/cpu,cpuacct/slurm/uid_{}/job_{}/cpuacct.usage_percpu'.format(uid, job), 'r') as f_usage:
                     cpu_usages = f_usage.read().split()
                     for core in cores:
-                        counter_core_usage.add_metric([user, account, job, str(core)],
-                                                      int(cpu_usages[core]))
+                        metrics["counter_core_usage"].add_metric([user, account, job, str(core)], int(cpu_usages[core]))
             else:
                 # We are running cgroups v2, we can use the cpu.stat file, but we won't get the per-core usage
                 # We will fake the per-core usage by dividing the total usage by the number of cores so we can still count it
@@ -455,8 +455,7 @@ per elapsed cycle)',
                     cpu_stat = dict(line.split() for line in f_usage.readlines())
                     fake_usage_per_core = int(cpu_stat['usage_usec']) * 1000 / core_count  # convert to nanoseconds
                     for core in cores:
-                        counter_core_usage.add_metric([user, account, job, str(core)],
-                                                      fake_usage_per_core)
+                        metrics["counter_core_usage"].add_metric([user, account, job, str(core)], fake_usage_per_core)
 
             processes = 0
             tasks_state = {}
@@ -489,8 +488,8 @@ per elapsed cycle)',
                         tasks_state[pt_status] = 1
 
             for status in tasks_state.keys():
-                gauge_threads_count.add_metric([user, account, job, status], tasks_state[status])
-            gauge_process_count.add_metric([user, account, job], processes)
+                metrics["gauge_threads_count"].add_metric([user, account, job, status], tasks_state[status])
+            metrics["gauge_process_count"].add_metric([user, account, job], processes)
 
             processes_sum = {}
             for proc in procs:
@@ -518,7 +517,7 @@ per elapsed cycle)',
                     del processes_sum_filtered[exe]
 
             for exe in processes_sum_filtered.keys():
-                counter_process_usage.add_metric([user, account, job, exe], processes_sum_filtered[exe])
+                metrics["counter_process_usage"].add_metric([user, account, job, exe], processes_sum_filtered[exe])
 
             if self.MONITOR_PYNVML:
                 for gpu in gpu_set:
@@ -529,22 +528,22 @@ per elapsed cycle)',
                         gpu_type = self.pynvml.nvmlDeviceGetName(handle)
                     else:
                         gpu_type = self.pynvml.nvmlDeviceGetName(handle).decode()
-                    gauge_memory_total_gpu.add_metric(
+                    metrics["gauge_memory_total_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         int(self.pynvml.nvmlDeviceGetMemoryInfo(handle).total))
-                    gauge_memory_usage_gpu.add_metric(
+                    metrics["gauge_memory_usage_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         int(self.pynvml.nvmlDeviceGetMemoryInfo(handle).used))
                     try:
-                        gauge_power_gpu.add_metric(
+                        metrics["gauge_power_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             self.pynvml.nvmlDeviceGetPowerUsage(handle))
                     except self.pynvml.NVMLError_NotSupported:
                         pass
                     utils = self.pynvml.nvmlDeviceGetUtilizationRates(handle)
-                    gauge_utilization_gpu.add_metric(
+                    metrics["gauge_utilization_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type], utils.gpu)
-                    gauge_memory_utilization_gpu.add_metric(
+                    metrics["gauge_memory_utilization_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type], utils.memory)
 
             if self.MONITOR_DCGM:
@@ -559,99 +558,62 @@ per elapsed cycle)',
                     gpu_uuid = gpu_tuple[1]
                     gpu_type = dcgm_data[gpu_uuid]['name']
                     # Converting DCGM data to the same format as NVML and reusing the same metrics
-                    gauge_memory_total_gpu.add_metric(
+                    metrics["gauge_memory_total_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         int(dcgm_data[gpu_uuid]['fb_total']) * 1024 * 1024)  # convert to bytes
-                    gauge_memory_usage_gpu.add_metric(
+                    metrics["gauge_memory_usage_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         int(dcgm_data[gpu_uuid]['fb_used']) * 1024 * 1024)  # convert to bytes
-                    gauge_power_gpu.add_metric(
+                    metrics["gauge_power_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         dcgm_data[gpu_uuid]['power_usage'] * 1000)  # convert to mW
-                    gauge_utilization_gpu.add_metric(
+                    metrics["gauge_utilization_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
-                    gauge_memory_utilization_gpu.add_metric(
+                    metrics["gauge_memory_utilization_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
 
                     # Convert to % to keep the same format as NVML
                     if 'sm_occupancy' in dcgm_data[gpu_uuid]:
-                        gauge_sm_occupancy_gpu.add_metric(
+                        metrics["gauge_sm_occupancy_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu_uuid]['sm_occupancy'] * 100)
                     if 'tensor_active' in dcgm_data[gpu_uuid]:
-                        gauge_tensor_gpu.add_metric(
+                        metrics["gauge_tensor_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu_uuid]['tensor_active'] * 100)
                     if 'fp64_active' in dcgm_data[gpu_uuid]:
-                        gauge_fp64_gpu.add_metric(
+                        metrics["gauge_fp64_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu_uuid]['fp64_active'] * 100)
                     if 'fp32_active' in dcgm_data[gpu_uuid]:
-                        gauge_fp32_gpu.add_metric(
+                        metrics["gauge_fp32_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu_uuid]['fp32_active'] * 100)
                     if 'fp16_active' in dcgm_data[gpu_uuid]:
-                        gauge_fp16_gpu.add_metric(
+                        metrics["gauge_fp16_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu_uuid]['fp16_active'] * 100)
 
                     if 'pcie_tx_bytes' in dcgm_data[gpu_uuid]:
-                        gauge_pcie_gpu.add_metric(
+                        metrics["gauge_pcie_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type, 'TX'],
                             dcgm_data[gpu_uuid]['pcie_tx_bytes'])
                     if 'pcie_rx_bytes' in dcgm_data[gpu_uuid]:
-                        gauge_pcie_gpu.add_metric(
+                        metrics["gauge_pcie_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type, 'RX'],
                             dcgm_data[gpu_uuid]['pcie_rx_bytes'])
                     if 'nvlink_tx_bytes' in dcgm_data[gpu_uuid]:
-                        gauge_nvlink_gpu.add_metric(
+                        metrics["gauge_nvlink_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type, 'TX'],
                             dcgm_data[gpu_uuid]['nvlink_tx_bytes'])
                     if 'nvlink_rx_bytes' in dcgm_data[gpu_uuid]:
-                        gauge_nvlink_gpu.add_metric(
+                        metrics["gauge_nvlink_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type, 'RX'],
                             dcgm_data[gpu_uuid]['nvlink_rx_bytes'])
 
-        yield gauge_memory_usage
-        yield gauge_memory_max
-        yield gauge_memory_limit
-        yield gauge_memory_cache
-        yield gauge_memory_rss
-        yield gauge_memory_rss_huge
-        yield gauge_memory_mapped_file
-        yield gauge_memory_active_file
-        yield gauge_memory_inactive_file
-        yield gauge_memory_unevictable
-        yield counter_core_usage
-        yield gauge_process_count
-        yield gauge_threads_count
-        yield counter_process_usage
-
-        if self.MONITOR_PYNVML or self.MONITOR_DCGM:
-            yield gauge_memory_total_gpu
-            yield gauge_memory_usage_gpu
-            yield gauge_power_gpu
-            yield gauge_utilization_gpu
-            yield gauge_memory_utilization_gpu
-        if self.MONITOR_DCGM:
-            if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY in self.used_metrics:
-                yield gauge_sm_occupancy_gpu
-            if dcgm_fields.DCGM_FI_PROF_PIPE_TENSOR_ACTIVE in self.used_metrics:
-                yield gauge_tensor_gpu
-            if dcgm_fields.DCGM_FI_PROF_PIPE_FP64_ACTIVE in self.used_metrics:
-                yield gauge_fp64_gpu
-            if dcgm_fields.DCGM_FI_PROF_PIPE_FP32_ACTIVE in self.used_metrics:
-                yield gauge_fp32_gpu
-            if dcgm_fields.DCGM_FI_PROF_PIPE_FP16_ACTIVE in self.used_metrics:
-                yield gauge_fp16_gpu
-            if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
-                    dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
-                yield gauge_pcie_gpu
-            if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
-                    dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
-                yield gauge_nvlink_gpu
+        yield from metrics.values()
 
 
 class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
