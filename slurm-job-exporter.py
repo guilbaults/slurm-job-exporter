@@ -123,7 +123,11 @@ class SlurmJobCollector(object):
         self.MONITOR_PYNVML = False
         self.UNSUPPORTED_FEATURES = []
         for proc in psutil.process_iter():
-            if monitor == 'dcgm' and proc.name() == 'nv-hostengine':
+            try:
+                proc_name = proc.name()
+            except psutil.NoSuchProcess:
+                continue
+            if monitor == 'dcgm' and proc_name == 'nv-hostengine':
                 # DCGM is running on this host
                 # Find the installed version
                 nvh_out = os.popen("""nv-hostengine --version""").read().split("\n")
