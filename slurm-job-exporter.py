@@ -624,7 +624,7 @@ class NoLoggingWSGIRequestHandler(WSGIRequestHandler):
         pass
 
 
-def search_dcgm_lib():
+def search_dcgm_lib(paths=[]):
     # Search the list of processes for "nv-hostengine"
     nvh_found = False
     for proc in psutil.process_iter():
@@ -635,16 +635,15 @@ def search_dcgm_lib():
         except psutil.NoSuchProcess:
             continue
     if nvh_found:
-        nvh_out = os.popen("""nv-hostengine --version""").read().split("\n")
-        # Search DCGM major version from the line similar to : "Version : 4.4.0"
-        rexp = re.compile("^Version.*")
-        dcgm_version = list(filter(rexp.match, nvh_out))[0].split(" : ")[1].split(".")[0]
-
-        # Set DCGM bindings
-        if int(dcgm_version) >= 4:
-            return "/usr/share/datacenter-gpu-manager-" + dcgm_version + "/bindings/python3/"
-        else:
-            return "/usr/local/dcgm/bindings/python3/"
+        potential_paths = paths + [
+            "/usr/share/datacenter-gpu-manager-*/bindings/python3/",
+            "/usr/local/dcgm/bindings/python3/"
+        ]
+        for ppath in potential_paths:
+            search_ppath = glob.glob(ppath)
+            if search_ppath:
+                return search_ppath[-1]
+        return None
 
 
 if __name__ == '__main__':
