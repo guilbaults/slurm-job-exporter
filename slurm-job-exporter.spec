@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.4.11
+Version:  0.4.12
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -37,6 +37,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Wed Apr 15 2026 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.12-1
+- Refactoring metric collection and DCGM detection
 * Tue Mar 30 2026 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.11-1
 - Fixing a bug with pt.status() and separating MIG and GPU metrics in two DCGM groups
 * Tue Oct 14 2025 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.10-1
