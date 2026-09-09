@@ -106,6 +106,28 @@ def cgroup_gpus(job_dir, cgroups):
     return gpus
 
 
+def get_dcgm_field_group(handle, name, field_ids):
+    """
+    Create a DCGM field group, removing a stale one with the same name if it
+    exists. A field group created by a previous exporter run that died without
+    cleaning up can linger in the host engine until its connection is reaped,
+    in which case dcgmFieldGroupCreate fails with DCGM_ST_DUPLICATE_KEY.
+    """
+    try:
+        return pydcgm.DcgmFieldGroup(handle, name=name, fieldIds=field_ids)
+    except dcgm_structs.DCGMError as e:
+        if e.status != dcgm_structs.DCGM_ST_DUPLICATE_KEY:
+            raise
+        print("Removing stale DCGM field group '{}' left by a previous run".format(name))
+        try:
+            stale_id = handle.GetSystem().GetFieldGroupIdByName(name)
+            if stale_id is not None:
+                pydcgm.DcgmFieldGroup(dcgmHandle=handle, fieldGroupId=stale_id).Delete()
+        except dcgm_structs.DCGMError as e:
+            print("Could not remove stale DCGM field group '{}': {}".format(name, e))
+        return pydcgm.DcgmFieldGroup(handle, name=name, fieldIds=field_ids)
+
+
 class SlurmJobCollector(object):
     """
     Used by a WSGI application to collect and return stats about currently
@@ -189,11 +211,11 @@ class SlurmJobCollector(object):
             }
 
             self.field_groups = {}
-            self.field_groups["gpu"] = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-gpu-fg", fieldIds=list(self.used_metrics))
+            self.field_groups["gpu"] = get_dcgm_field_group(self.handle, "slurm-job-exporter-gpu-fg", list(self.used_metrics))
             self.groups["gpu"].samples.WatchFields(self.field_groups["gpu"], dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
 
             if "mig" in self.groups:
-                self.field_groups["mig"] = pydcgm.DcgmFieldGroup(self.handle, name="slurm-job-exporter-mig-fg", fieldIds=list(set(self.used_metrics) ^ missing_mig_metrics))
+                self.field_groups["mig"] = get_dcgm_field_group(self.handle, "slurm-job-exporter-mig-fg", list(set(self.used_metrics) ^ missing_mig_metrics))
                 self.groups["mig"].samples.WatchFields(self.field_groups["mig"], dcgm_update_interval * 1000 * 1000, dcgm_update_interval * 2.0, 5)
 
             self.handle.GetSystem().UpdateAllFields(True)
