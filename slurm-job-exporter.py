@@ -543,9 +543,15 @@ per elapsed cycle)',
                 metrics["counter_process_usage"].add_metric([user, account, job, exe], processes_sum_filtered[exe])
 
             if self.MONITOR_PYNVML:
-                for gpu in gpu_set:
-                    gpu = int(gpu[0])
-                    handle = self.pynvml.nvmlDeviceGetHandleByIndex(gpu)
+                for gpu_tuple in gpu_set:
+                    # gpu_tuple[0] is the job-local cgroup index (a job's GPU is
+                    # always renumbered to 0 inside its cgroup), NOT a physical
+                    # NVML index — resolving the handle by that index reads the
+                    # wrong card for any job whose GPU isn't physical index 0.
+                    # Resolve by UUID instead (gpu_tuple[1]).
+                    gpu = gpu_tuple[0]
+                    gpu_uuid = gpu_tuple[1]
+                    handle = self.pynvml.nvmlDeviceGetHandleByUUID(gpu_uuid.encode())
                     name = self.pynvml.nvmlDeviceGetName(handle)
                     if type(name) is str:
                         gpu_type = self.pynvml.nvmlDeviceGetName(handle)
