@@ -242,7 +242,8 @@ class SlurmJobCollector(object):
                 for v in data[k].keys():
                     data_dict = {}
                     for metric_id in data[k][v].keys():
-                        data_dict[self.fieldIds_dict[metric_id]] = data[k][v][metric_id].values[0].value
+                        if not data[k][v][metric_id].values[0].isBlank:
+                            data_dict[self.fieldIds_dict[metric_id]] = data[k][v][metric_id].values[0].value
                     gpus[data_dict['uuid']] = data_dict
 
         return gpus
@@ -589,12 +590,14 @@ per elapsed cycle)',
                     metrics["gauge_power_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         dcgm_data[gpu_uuid]['power_usage'] * 1000)  # convert to mW
-                    metrics["gauge_utilization_gpu"].add_metric(
-                        [user, account, job, str(gpu), gpu_type],
-                        dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
-                    metrics["gauge_memory_utilization_gpu"].add_metric(
-                        [user, account, job, str(gpu), gpu_type],
-                        dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
+                    if 'sm_active' in dcgm_data[gpu_uuid]:
+                        metrics["gauge_utilization_gpu"].add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
+                    if 'dram_active' in dcgm_data[gpu_uuid]:
+                        metrics["gauge_memory_utilization_gpu"].add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
 
                     # Convert to % to keep the same format as NVML
                     if 'sm_occupancy' in dcgm_data[gpu_uuid]:
