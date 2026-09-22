@@ -164,6 +164,7 @@ class SlurmJobCollector(object):
                 dcgm_fields.DCGM_FI_DEV_BOARD_POWER_WATTS: 'power_usage',
                 dcgm_fields.DCGM_FI_DEV_FB_TOTAL: 'fb_total',
                 dcgm_fields.DCGM_FI_DEV_FB_USED: 'fb_used',
+                dcgm_fields.DCGM_FI_DEV_GPU_UTIL: 'gpu_util',
                 dcgm_fields.DCGM_FI_PROF_FP64_UTIL_RATIO: 'fp64_active',
                 dcgm_fields.DCGM_FI_PROF_FP32_UTIL_RATIO: 'fp32_active',
                 dcgm_fields.DCGM_FI_PROF_FP16_UTIL_RATIO: 'fp16_active',
@@ -191,6 +192,7 @@ class SlurmJobCollector(object):
                 dcgm_fields.DCGM_FI_DEV_BOARD_POWER_WATTS,
                 dcgm_fields.DCGM_FI_DEV_FB_TOTAL,
                 dcgm_fields.DCGM_FI_DEV_FB_USED,
+                dcgm_fields.DCGM_FI_DEV_GPU_UTIL,
             }
             metric_groups = pydcgm.dcgm_agent.dcgmProfGetSupportedMetricGroups(self.handle.handle, saved_gpu_id)
             for mg in metric_groups.metricGroups[:metric_groups.numMetricGroups]:
@@ -329,6 +331,11 @@ global (device) memory was being read or written.',
 
         if self.MONITOR_DCGM:
             # DCGM have additional metrics for GPU
+            if dcgm_fields.DCGM_FI_PROF_SM_UTIL_RATIO in self.used_metrics:
+                metrics['gauge_sm_active_gpu'] = GaugeMetricFamily(
+                    'slurm_job_sm_active_gpu',
+                    'The ratio of cycles an SM has at least 1 warp assigned (computed from the number of cycles and elapsed cycles) ',
+                    labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
             if dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY_RATIO in self.used_metrics:
                 metrics['gauge_sm_occupancy_gpu'] = GaugeMetricFamily(
                     'slurm_job_sm_occupancy_gpu',
@@ -596,16 +603,20 @@ per elapsed cycle)',
                     metrics["gauge_power_gpu"].add_metric(
                         [user, account, job, str(gpu), gpu_type],
                         dcgm_data[gpu_uuid]['power_usage'] * 1000)  # convert to mW
-                    if 'sm_active' in dcgm_data[gpu_uuid]:
+                    if 'gpu_util' in dcgm_data[gpu_uuid]:
                         metrics["gauge_utilization_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['sm_active'] * 100)  # convert to %
+                            dcgm_data[gpu_uuid]['gpu_util'] * 100)  # convert to %
                     if 'dram_active' in dcgm_data[gpu_uuid]:
                         metrics["gauge_memory_utilization_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
                             dcgm_data[gpu_uuid]['dram_active'] * 100)  # convert to %
 
                     # Convert to % to keep the same format as NVML
+                    if 'sm_active' in dcgm_data[gpu_uuid]:
+                        metrics["gauge_sm_active_gpu"].add_metric(
+                            [user, account, job, str(gpu), gpu_type],
+                            dcgm_data[gpu_uuid]['sm_active'] * 100)
                     if 'sm_occupancy' in dcgm_data[gpu_uuid]:
                         metrics["gauge_sm_occupancy_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
