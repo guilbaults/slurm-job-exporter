@@ -1,5 +1,5 @@
 Name:	  slurm-job-exporter
-Version:  0.5.0
+Version:  0.5.1
 Release:  1%{?dist}
 Summary:  Prometheus exporter for stats in slurm accounting cgroups
 
@@ -37,6 +37,8 @@ rm -rf $RPM_BUILD_ROOT
 %{_unitdir}/slurm-job-exporter.service
 
 %changelog
+* Wed Oct 07 2026 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.5.1-1
+- Fixing the scaling of slurm_job_utilization_gpu
 * Thu Sep 24 2026 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.5.0-1
 - Fixing GPU utilization metric. Requires DCGM 4.6.0+
 * Wed Sep 9 2026 Simon Guilbault <simon.guilbault@calculquebec.ca> 0.4.13-1
