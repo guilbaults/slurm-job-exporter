@@ -606,7 +606,7 @@ per elapsed cycle)',
                     if 'gpu_util' in dcgm_data[gpu_uuid]:
                         metrics["gauge_utilization_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
-                            dcgm_data[gpu_uuid]['gpu_util'] * 100)  # convert to %
+                            dcgm_data[gpu_uuid]['gpu_util'])  # already in %
                     if 'dram_active' in dcgm_data[gpu_uuid]:
                         metrics["gauge_memory_utilization_gpu"].add_metric(
                             [user, account, job, str(gpu), gpu_type],
