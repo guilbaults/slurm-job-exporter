@@ -172,10 +172,10 @@ class SlurmJobCollector(object):
                 dcgm_fields.DCGM_FI_PROF_SM_OCCUPANCY_RATIO: 'sm_occupancy',
                 dcgm_fields.DCGM_FI_PROF_TENSOR_UTIL_RATIO: 'tensor_active',
                 dcgm_fields.DCGM_FI_PROF_DRAM_UTIL_RATIO: 'dram_active',
-                dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES: 'pcie_tx_bytes',
-                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES: 'pcie_rx_bytes',
-                dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES: 'nvlink_tx_bytes',
-                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES: 'nvlink_rx_bytes',
+                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES_PER_SECOND: 'pcie_tx_bytes',
+                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES_PER_SECOND: 'pcie_rx_bytes',
+                dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES_PER_SECOND: 'nvlink_tx_bytes',
+                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES_PER_SECOND: 'nvlink_rx_bytes',
             }
 
             for gpu_id in pydcgm.DcgmSystemDiscovery(self.handle).GetAllSupportedGpuIds():
@@ -206,10 +206,10 @@ class SlurmJobCollector(object):
                 print(self.fieldIds_dict[metric])
 
             missing_mig_metrics = {
-                dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES,
-                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES,
-                dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES,
-                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES,
+                dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES_PER_SECOND,
+                dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES_PER_SECOND,
+                dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES_PER_SECOND,
+                dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES_PER_SECOND,
             }
 
             self.field_groups = {}
@@ -364,13 +364,13 @@ per elapsed cycle)',
                     'slurm_job_fp16_gpu',
                     'Ratio of cycles the fp16 pipe is active',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type'])
-            if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES in self.used_metrics or
-                    dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES in self.used_metrics):
+            if (dcgm_fields.DCGM_FI_PROF_NVLINK_TX_BYTES_PER_SECOND in self.used_metrics or
+                    dcgm_fields.DCGM_FI_PROF_NVLINK_RX_BYTES_PER_SECOND in self.used_metrics):
                 metrics["gauge_nvlink_gpu"] = GaugeMetricFamily(
                     'slurm_job_nvlink_gpu', 'Nvlink tx/rx bytes per second',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
-            if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES in self.used_metrics or
-                    dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES in self.used_metrics):
+            if (dcgm_fields.DCGM_FI_PROF_PCIE_TX_BYTES_PER_SECOND in self.used_metrics or
+                    dcgm_fields.DCGM_FI_PROF_PCIE_RX_BYTES_PER_SECOND in self.used_metrics):
                 metrics["gauge_pcie_gpu"] = GaugeMetricFamily(
                     'slurm_job_pcie_gpu', 'PCIe tx/rx bytes per second',
                     labels=['user', 'account', 'slurmjobid', 'gpu', 'gpu_type', 'direction'])
